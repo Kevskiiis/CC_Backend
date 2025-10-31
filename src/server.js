@@ -2,12 +2,14 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
+import { createClient } from '@supabase/supabase-js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
 
 // Secure: Apply RSA and HTTPS
 
+// Start server & intialize port number:
 const server = express();
 const PORT = process.env.PORT || 3000;
 
@@ -15,13 +17,16 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
+// Start Supabase Client:
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // Middleware:
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
 // POST Methods:
 server.post('/sign-in', (req, res) => {
-
+    
 });
 
 server.post('/sign-out', (req, res) => {
@@ -57,7 +62,6 @@ server.post('/update-username', (req, res) => {
 server.delete('/leave-community', (req, res) => {
 
 });
-
 
 // Listening Port:
 server.listen(PORT, (error) => {
