@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import { hashToken } from './authFunctions.js';
+// import { hashToken } from './authFunctions.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -150,5 +150,5 @@ export async function refreshSession (refreshToken) {
 
 // CREATE COMMUNITY:
 export async function createCommunity (communityName, communityBio, attachment64, userID) {
-    
+
 }

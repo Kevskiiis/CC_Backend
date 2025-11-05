@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 // import { nanoid } from 'nanoid';
 
 // Imported functions:
-import { hashToken } from '../utils/authFunctions.js';
+// import { hashToken } from '../utils/authFunctions.js';
 import { validateNewAccount } from '../utils/authValidator.js';
 import { createNewAccount, signIn, signOut, refreshSession} from '../utils/supabaseFuntions.js';
 

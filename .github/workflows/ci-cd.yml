@@ -55,6 +55,4 @@ jobs:
                 tags: |
                     ${{ secrets.DOCKERHUB_USERNAME }}/cc-backend-api:latest
                     ${{ secrets.DOCKERHUB_USERNAME }}/cc-backend-api:${{ github.sha }}
-            
-            - name: 
               
