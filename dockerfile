@@ -11,6 +11,9 @@ RUN npm install
 # Copy source files: 
 COPY /src ./src
 
+# Copy Util Files:
+COPY /utils ./utils
+
 # Change directory to source folder & start server:
 WORKDIR /app/src
 CMD ["node", "server.js"]

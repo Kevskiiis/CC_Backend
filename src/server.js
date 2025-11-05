@@ -3,8 +3,13 @@ import express from 'express';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import { createClient } from '@supabase/supabase-js';
-import { argon2 } from 'argon2';
-import { nanoid } from 'nanoid';
+// import argon2 from 'argon2';
+// import { nanoid } from 'nanoid';
+
+// Imported functions:
+import { hashToken } from '../utils/authFunctions.js';
+import { validateNewAccount } from '../utils/authValidator.js';
+import { createNewAccount, signIn, signOut, refreshSession} from '../utils/supabaseFuntions.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -16,11 +21,11 @@ const server = express();
 const PORT = process.env.PORT || 3000;
 
 // Supbase configuration:
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+// const SUPABASE_URL = process.env.SUPABASE_URL;
+// const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Start Supabase Client:
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Middleware:
 server.use(express.json());
@@ -35,48 +40,40 @@ server.post('/sign-in', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        // Trim any trailing spaces: 
+        let [trimmedEmail, trimmedPassword] = [email, password].map(str => str.trim());
 
-        if (error || !data.session) {
-            return res.status(401).send({
-                isAuthenticated: false,
-                accessToken: null,
-                error: true,
-                errorMessage: error?.message || 'Invalid credentials'
-            });
+        // Attempt to sign-in via Supabase:
+        const result = await signIn(trimmedEmail, trimmedPassword);
+
+        // Send data back:
+        if (result.success) {
+            return res.status(200).json({
+                success: true, 
+                message: result.message,
+                userID: result.userID,
+                refreshToken: result.refresh_token,
+                accessToken: result.accessToken
+            })
         }
-
-        // Implement this function!
-        //
-        // 
-        // Fix the seurity here!
-        const {data: result, error: err} = await supabase
-            .from('refresh_token')
-            .insert([
-                {
-                    profile_id: data.user.id,
-                    refresh_token_id: data.session.refresh_token,
-                    last_accessed_at: new Date()
-                }
-            ]);
-
-        await storeRefreshTokenForUser(data.user.id, data.session.refresh_token);
-
-        return res.status(200).send({
-            isAuthenticated: true,
-            accessToken: data.session.access_token,
-            error: false,
-            errorMessage: null
-        });
         
-    } catch (err) {
-        console.error(err);
-        return res.status(500).send({
-            isAuthenticated: false,
-            accessToken: null,
-            error: true,
-            errorMessage: 'Sign-in failed, please try again later.'
-        });
+        // Success:
+        return res.status(401).json({
+            success: false,
+            message: result.message,
+            userID: null,
+            refreshToken: null,
+            accessToken: null
+        })
+    } 
+    catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: 'Cannot sign in at this time.',
+            userID: null,
+            refreshToken: null,
+            accessToken: null
+        })
     }
 });
 
@@ -84,175 +81,130 @@ server.post('/sign-in', async (req, res) => {
 server.post('/sign-out', async (req, res) => {
     const { userID } = req.body;
 
+    if (!userID) {
+        return res.status(400).json({
+            success: false,
+            message: 'userID is required'
+        });
+    }
+
     try {
-        // IMPLEMENT THIS FUNCTION
-        const refreshToken = await getUserRefreshToken(userID);
-
-        if (!refreshToken) {
-            return res.status(401).send({
-                error: true,
-                errorMessage: 'You must sign in first.'
-            });
-        }
-
-        const { error } = await supabase.auth.signOut({ refreshToken });
+        const error = await signOut(userID.trim())
 
         if (error) {
-            return res.status(400).send({
-                error: true,
-                errorMessage: error.message
-            });
+            return res.status(500).json({
+                success: false,
+                message: error.message
+            })
         }
-
-        // Remove token from backend store (IMPLEMENT)
-        await deleteUserRefreshToken(userID);
-
-        return res.status(200).send({
-            error: false,
-            errorMessage: null
-        });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).send({
-            error: true,
-            errorMessage: 'Our servers are unable to complete this action at this time.'
-        });
+        else {
+            return res.status(200).json({
+                success: true,
+                message: 'Logged out successfully!'
+            }) 
+        }
+    }
+    catch (error) {
+        return res.status(500).json({
+                success: false,
+                message: error.message || 'An unexpected error occurred'
+        })
     }
 });
 
 server.post('/create-account', async (req, res) => {
-    const { firstName, lastName, username, phoneNumber, email, password } = req.body;
-
+    const { firstName, lastName, email, password } = req.body;
+    
     try {
-        // Sign up user with Supabase Auth
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-        });
+        // Trim the inputs from trailing white spaces:
+        let [trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword] = [firstName, lastName, email, password].map(str => str.trim());
 
-        if (error) {
-            return res.status(400).send({
-                error: true,
-                errorMessage: error.message,
-                success: false,
-                successMessage: null
-            });
+        // Validate new account first:
+        const newAccountStatus = await validateNewAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
+
+        // Create new account: 
+        if (newAccountStatus) {
+            const result = await createNewAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
+
+            if (result.errorStatus) {
+                return res.status(500).json({
+                    sucess: false,
+                    sucessMessage: null,
+                    errorStatus: true,
+                    errorMessage: result.errorMessage
+                })
+            }
+            else {
+                return res.status(200).json({
+                    sucess: true,
+                    sucessMessage: 'Account was successfully created.',
+                    errorStatus: false,
+                    errorMessage: null
+                })
+            } 
         }
-
-        const user = data.user;
-
-        if (!user) {
-            console.error("No user returned from signUp");
-            return res.status(500).send({
-                error: true,
-                errorMessage: "User creation failed, no user returned",
-                success: false,
-                successMessage: null
-            });
+        else {
+            return res.status(500).json({
+                sucess: false,
+                sucessMessage: null,
+                errorStatus: true,
+                errorMessage: "We couldn't create your account. Please double-check that all fields are filled out, and your password is at least 10 characters long with a mix of uppercase and lowercase letters, a number, and a special character."
+            })
         }
-
-        // Insert the rest of the profile info in your 'profiles' table
-        const { error: profileError } = await supabase.from("profiles").insert({
-            profile_id: user.id,
-            first_name: firstName,
-            last_name: lastName,
-            username: username,
-            phone_number: phoneNumber,
-            created_at: new Date(),
-        });
-
-        if (profileError) {
-            // Optional: delete the user from auth if profile insert fails
-            await supabase.auth.admin.deleteUser(user.id);
-
-            return res.status(400).send({
-                error: true,
-                errorMessage: profileError.message,
-                success: false,
-                successMessage: null
-            });
-        }
-
-        // Successfully created user and profile
-        return res.status(201).send({
-            error: false,
-            errorMessage: null,
-            success: true,
-            successMessage: "Account created successfully!",
-            userId: user.id // optional, useful for client
-        });
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).send({
-            error: true,
-            errorMessage: "Server error: Unable to create account at this time.",
-            success: false,
-            successMessage: null
-        });
+    } 
+    catch (err) {
+        return res.status(500).json({
+                sucess: false,
+                sucessMessage: null,
+                errorStatus: true,
+                errorMessage: 'The server is unable to create accounts at this time. Please try again later.'
+        })
     }
 });
 
 server.post('/restore-session', async (req, res) => {
-    const { userID, accessToken } = req.body;
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+        return res.status(400).json({
+            success: false,
+            message: "Refresh token is required.",
+            data: null
+        });
+    }
 
     try {
-        // IMPLEMENT
-        const refreshToken = await getUserRefreshToken(userID);
+        const result = await refreshSession(refreshToken);
 
-        if (!refreshToken) {
-            return res.status(401).send({
-                error: true,
-                errorMessage: 'No session found. Please sign in again.',
-                accessToken: null
+        if (!result.success) {
+            return res.status(401).json({
+                success: false,
+                message: result.message,
+                data: null
             });
         }
 
-        // Attempt to restore the session using Supabase
-        const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-        });
-
-        if (error || !data.session) {
-            return res.status(401).send({
-                error: true,
-                errorMessage: error?.message || 'Unable to restore session.',
-                accessToken: null
-            });
-        }
-
-        // IMPLEMENT:
-        await replaceRefreshToken(userID, data.session.refresh_token);
-
-        // Return the refreshed session info
-        return res.status(200).send({
-            error: false,
-            errorMessage: null,
-            accessToken: data.session.access_token
-        });
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).send({
-            error: true,
-            errorMessage: 'Server error: Unable to restore session at this time.',
-            accessToken: null
+        return res.status(200).json(result);
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'An unexpected error occurred',
+            data: null
         });
     }
 });
 
-server.post('/join-community', (req, res) => {
+// server.post('/join-community', (req, res) => {
 
-});
+// });
 
 server.post('/create-community', async (req, res) => {
-    const { communityName, communityBio, attachment} = req.body;
+    const { communityName, communityBio, attachment, userID} = req.body; // Attachment = Image, must be a base64 string.
 
     try {
         // Generate unqiue code for the communtity:
-        let communityJoinCode = nanoid(15);
-
+        
 
 
     } catch (err) {
@@ -260,17 +212,21 @@ server.post('/create-community', async (req, res) => {
     }
 });
 
-// PATCH Methods:
-server.patch('/reset-password', (req, res) => {
-    // POSTPONE for now!
-});
+// // PATCH Methods:
+// server.patch('/reset-password', (req, res) => {
+//     // POSTPONE for now!
+// });
 
-server.post('/update-username', (req, res) => {
+// server.post('/update-username', (req, res) => {
 
-});
+// });
 
 // DELETE Methods:
 server.delete('/leave-community', (req, res) => {
+
+});
+
+server.delete('/delete-user', async (req, res) => {
 
 });
 
