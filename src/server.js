@@ -2,30 +2,17 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
-import { createClient } from '@supabase/supabase-js';
-// import argon2 from 'argon2';
-// import { nanoid } from 'nanoid';
 
 // Imported functions:
-// import { hashToken } from '../utils/authFunctions.js';
 import { validateNewAccount } from '../utils/authValidator.js';
-import { createNewAccount, signIn, signOut, refreshSession} from '../utils/supabaseFuntions.js';
+import { createNewAccount, signIn, signOut, refreshSession, createCommunity} from '../utils/supabaseFuntions.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
 
-// Secure: Apply RSA and HTTPS
-
 // Start server & intialize port number:
 const server = express();
 const PORT = process.env.PORT || 3000;
-
-// Supbase configuration:
-// const SUPABASE_URL = process.env.SUPABASE_URL;
-// const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
-// Start Supabase Client:
-// const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Middleware:
 server.use(express.json());
@@ -203,12 +190,27 @@ server.post('/create-community', async (req, res) => {
     const { communityName, communityBio, attachment, userID} = req.body; // Attachment = Image, must be a base64 string.
 
     try {
-        // Generate unqiue code for the communtity:
-        
+        const result = await createCommunity (communityName, communityBio, attachment, userID);
 
-
-    } catch (err) {
-
+        if (result.success) {
+            return res.status(200).json({
+                success: result.success,
+                message: result.message,
+                community: result.community
+            })
+        }
+        else {
+            return res.status(500).json({
+                success: result.success,
+                message: result.message
+            })
+        }
+    } 
+    catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to request call for create community at this time.'
+        })
     }
 });
 

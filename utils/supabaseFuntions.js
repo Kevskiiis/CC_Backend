@@ -12,6 +12,9 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 // Start Supabase Client:
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Community Functions:
+import { generateCommunityCode } from './CommunityFunctions.js';
+
 // CREATE ACCOUNT:
 export async function createNewAccount (trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword) {
     try {
@@ -149,6 +152,123 @@ export async function refreshSession (refreshToken) {
 }
 
 // CREATE COMMUNITY:
-export async function createCommunity (communityName, communityBio, attachment64, userID) {
+export async function createCommunity(communityName, communityBio, attachment64, userID) {
+  try {
+    // Validate inputs
+    if (!communityName?.trim()) {
+      return { success: false, message: 'Community name is required.' };
+    }
+    if (!userID) {
+      return { success: false, message: 'User ID is required.' };
+    }
 
+    // Check if the community name already exists:
+    const { data: CommunityCheckData, error: CommunityCheckError } = await supabase
+      .from('communities')
+      .select('community_name')
+      .eq('community_name', communityName)
+      .limit(1);
+
+    if (CommunityCheckError) {
+      console.error('Error checking community name:', CommunityCheckError);
+      return { 
+        success: false, 
+        message: 'Failed to verify community name availability.',
+        error: CommunityCheckError.message 
+      };
+    }
+
+    if (CommunityCheckData?.length > 0) {
+      return { 
+        success: false, 
+        message: 'A community with this name already exists.'
+      };
+    }
+
+    // Generate community code with retry logic:
+    let joinCode;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+      joinCode = await generateCommunityCode();
+
+      const { data: JoinCodeData, error: JoinCodeError } = await supabase
+        .from('communities')
+        .select('join_code')
+        .eq('join_code', joinCode)
+        .limit(1);
+
+      if (JoinCodeError) {
+        console.error('Error checking join code:', JoinCodeError);
+        return { 
+          success: false, 
+          message: 'Failed to generate a unique join code.'
+        };
+      }
+
+      if (JoinCodeData?.length === 0) {
+        break;
+      }
+
+      attempts++;
+      
+      if (attempts >= maxAttempts) {
+        return { 
+          success: false, 
+          message: 'Could not generate a unique join code. Please try again.' 
+        };
+      }
+    }
+
+    // Call the database function (atomic transaction)
+    const { data: CommunityData, error: CommunityError } = await supabase
+      .rpc('create_community_with_creator', {
+        p_community_name: communityName,
+        p_community_bio: communityBio || null,
+        p_attachment_url: attachment64 || null,
+        p_join_code: joinCode,
+        p_user_id: userID
+      });
+
+    if (CommunityError) {
+      console.error('Error creating community:', CommunityError);
+      return { 
+        success: false, 
+        message: 'Failed to create community.' 
+      };
+    }
+
+    if (!CommunityData || CommunityData.length === 0) {
+      console.error('Community function returned no data');
+      return { 
+        success: false, 
+        message: 'Failed to retrieve community data after creation.' 
+      };
+    }
+
+    // The function returns an array with one row
+    const community = CommunityData[0];
+
+    // Success:
+    return {
+      success: true,
+      message: 'Community created successfully!',
+      community: {
+        id: community.community_id,
+        name: community.community_name,
+        bio: community.community_bio,
+        joinCode: community.join_code,
+        attachmentUrl: community.attachment_url,
+        dateCreated: community.date_created
+      }
+    };
+
+  } catch (error) {
+    console.error('Unexpected error in createCommunity:', error);
+    return { 
+      success: false, 
+      message: 'An unexpected error occurred while creating the community.'
+    };
+  }
 }

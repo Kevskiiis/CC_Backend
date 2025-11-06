@@ -1,7 +1,7 @@
 // NPM Packages:
 import axios from "axios";
 import dotenv from 'dotenv';
-import { createClient } from "@supabase/supabase-js";
+// import { createClient } from "@supabase/supabase-js";
 
 // Supabase Functions:
 // import { findValueInTable } from "./supabaseFuntions.js";
@@ -14,36 +14,36 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Start Supabase Client:
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Email Validator:
-export async function emailValidator (email) {
-    try {
-        // (1) Verify that the email exists and is valid to recieve emails:
-        const response = await axios.get(`https://emailreputation.abstractapi.com/v1/?api_key=${process.env.ABSTRACT_API_KEY}&email=${email}`)
+// export async function emailValidator (email) {
+//     try {
+//         // (1) Verify that the email exists and is valid to recieve emails:
+//         const response = await axios.get(`https://emailreputation.abstractapi.com/v1/?api_key=${process.env.ABSTRACT_API_KEY}&email=${email}`)
         
-        const deliverability = data.email_deliverability?.status || null;
-        const isDisposable = data.email_quality?.is_disposable || false;
-        const isRole = data.email_quality?.is_role || false;
-        const smtpValid = data.email_deliverability?.is_smtp_valid ?? false;
+//         const deliverability = data.email_deliverability?.status || null;
+//         const isDisposable = data.email_quality?.is_disposable || false;
+//         const isRole = data.email_quality?.is_role || false;
+//         const smtpValid = data.email_deliverability?.is_smtp_valid ?? false;
 
-        // Reject disposable or role-based emails
-        if (isDisposable || isRole) return false;
+//         // Reject disposable or role-based emails
+//         if (isDisposable || isRole) return false;
 
-        // Reject if SMTP check fails
-        if (!smtpValid) return false;
+//         // Reject if SMTP check fails
+//         if (!smtpValid) return false;
 
-        // Only accept truly deliverable emails
-        if (deliverability === 'deliverable') return true;
+//         // Only accept truly deliverable emails
+//         if (deliverability === 'deliverable') return true;
 
-        // Risky, undeliverable, unknown → reject
-        return false;
-  } 
-  catch (err) {
-    console.error('Email validation error:', err.message);
-    return false;
-  }
-}
+//         // Risky, undeliverable, unknown → reject
+//         return false;
+//   } 
+//   catch (err) {
+//     console.error('Email validation error:', err.message);
+//     return false;
+//   }
+// }
 
 // Password Validator:
 async function passwordLengthValidator (password) {
