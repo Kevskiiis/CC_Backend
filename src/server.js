@@ -5,7 +5,16 @@ import bodyParser from 'body-parser';
 
 // Imported functions:
 import { validateNewAccount } from '../utils/authValidator.js';
-import { createNewAccount, signIn, signOut, refreshSession, createCommunity} from '../utils/supabaseFuntions.js';
+import { 
+    createNewAccount, 
+    signIn, 
+    signOut, 
+    refreshSession, 
+    createCommunity,
+    getCommunities,
+    isUserInCommunity,
+    createPost
+} from '../utils/supabaseFuntions.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -19,7 +28,40 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
 // GET Methods:
+server.get('/get-communities', async(req, res) => { // must hit endpoint like this: /get-communities?userID={some ID here}
+    const { userID } = req.query;
+    console.log(userID);
+    if (!userID) {
+        return res.status(400).json({
+        success: false,
+        message: 'Missing userID in request.'
+        });
+    }
 
+    try {
+        const result = await getCommunities(userID);
+
+        console.log('Retrieved data:', result.data);
+
+        if (result.success) {
+            return res.status(200).json({
+                success: result.success,
+                communities: result.data
+            })
+        }
+
+        return res.status(404).json({
+            success: result.success,
+            message: result.message
+        })
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while fetching communities.'
+        })
+    }
+});
 
 // POST Methods: 
 
@@ -182,12 +224,8 @@ server.post('/restore-session', async (req, res) => {
     }
 });
 
-// server.post('/join-community', (req, res) => {
-
-// });
-
 server.post('/create-community', async (req, res) => {
-    const { communityName, communityBio, attachment, userID} = req.body; // Attachment = Image, must be a base64 string.
+    const { communityName, communityBio, attachment, userID } = req.body; // Attachment = Image, must be a base64 string.
 
     try {
         const result = await createCommunity (communityName, communityBio, attachment, userID);
@@ -214,14 +252,66 @@ server.post('/create-community', async (req, res) => {
     }
 });
 
-// // PATCH Methods:
-// server.patch('/reset-password', (req, res) => {
-//     // POSTPONE for now!
+server.post('/join-community', async (req, res) => {
+    const { enteredCode, userID } = req.body;
+
+    
+});
+
+// server.post('/create-post', async (req, res) => {
+//     const {communityID, userID, postTitle, postDescription, attachmentURL} = req.body;
+    
+//     // Verify user is in the community:
+//     const userInCommunity = await isUserInCommunity(communityID, userID);
+
+//     // Send the post: 
+//     if (userInCommunity.success) {
+//         const result = await createPost(communityID, userID, postTitle, postDescription, attachmentURL);
+
+//         if (result.success) {
+//             return res.status(200).json({
+//                 success: true,
+//                 data: result.data,
+//                 message: userInCommunity.message
+//             })
+//         }
+
+//         return res.status(500).json({
+//                 success: false,
+//                 data: null,
+//                 message: userInCommunity.message
+//         })
+//     }
+    
+//     // Decline the post:
+//     return res.status(401).json({
+//         success: false,
+//         data: null,
+//         message: 'The user is not in this community.'
+//     })
 // });
 
-// server.post('/update-username', (req, res) => {
+server.post('/create-post', async (req, res) => {
+    const {communityID, postTitle, postDescription, attachmentURL} = req.body;
+    const bearerToken = req.headers['authorization'].slice(7); // We expect the Access Token here to be able to take any action.
+    // console.log('AuthToken: ' + bearerToken); 
+    
+        const result = await createPost(communityID, postTitle, postDescription, attachmentURL, bearerToken);
 
-// });
+        if (result.success) {
+            return res.status(200).json({
+                success: true,
+                data: result.data,
+                message: 'userInCommunity.message'
+            })
+        }
+
+        return res.status(401).json({
+                success: false,
+                data: null,
+                message: result.message
+        })
+});
 
 // DELETE Methods:
 server.delete('/leave-community', (req, res) => {

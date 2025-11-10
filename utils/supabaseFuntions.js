@@ -95,7 +95,7 @@ export async function signIn (trimmedEmail, trimmedPassword) {
           message: error?.message || 'Invalid login credentials',
           userID: null,
           refresh_token: null,
-          accessToken: null
+          accessToken: null,
         }
       }
       else {
@@ -105,7 +105,7 @@ export async function signIn (trimmedEmail, trimmedPassword) {
           message: 'Login successful!',
           userID: data.user.id,
           refresh_token: data.session.refresh_token,
-          accessToken: data.session.access_token
+          accessToken: data.session.access_token,
         }
       }
     }  
@@ -269,6 +269,140 @@ export async function createCommunity(communityName, communityBio, attachment64,
     return { 
       success: false, 
       message: 'An unexpected error occurred while creating the community.'
+    };
+  }
+}
+
+export async function joinCommunity() {
+  
+}
+
+export async function getCommunities(userID) {
+  try {
+    // Call the SQL function (RPC) to retrieve user's communities:
+    const { data: RetrievedCommunitiesData, error: retrieveError } = await supabase
+      .rpc('get_users_communities', { p_user_id: userID });
+
+    // Handle Supabase error:
+    if (retrieveError) {
+      console.error(retrieveError);
+      return {
+        success: false,
+        message: retrieveError.message || 'Failed to retrieve communities.'
+      };
+    }
+
+    // Handle case where the function ran fine, but no communities found:
+    if (!RetrievedCommunitiesData || RetrievedCommunitiesData.length === 0) {
+      return {
+        success: false,
+        message: 'You are currently not in any communities. Create or join one!'
+      };
+    }
+
+    // Successful response:
+    return {
+      success: true,
+      message: 'Communities successfully found.',
+      data: RetrievedCommunitiesData
+    };
+  } 
+  catch (error) {
+    return {
+      success: false,
+      message: 'An unexpected error occurred while calling the database.',
+      error: error.message
+    };
+  }
+}
+
+// POST RELATED FUNCTIONS: -------------------------
+export async function isUserInCommunity(communityID, userID) {
+  if (!communityID || !userID) {
+    return { success: false, message: 'Missing community or user ID.', data: null };
+  }
+
+  // Ensure proper types
+  const communityInt = Number(communityID);
+  const userUUID = userID.trim();
+
+  try {
+    const { data, error } = await supabase
+    .from('community_members')
+    .select('*') 
+    .eq('community_id', communityInt)
+    .eq('member_id', userUUID)
+    .limit(1);
+
+
+    if (error) {
+      return { success: false, message: `Database error: ${error.message}`, data: null };
+    }
+
+    if (data && data.length > 0) {
+      return { success: true, message: 'The user is in this community.', data: true };
+    } 
+    else {
+      return { success: false, message: error, data: false };
+    }
+
+  } catch (err) {
+    return { success: false, message: 'Unexpected error occurred.', data: null };
+  }
+}
+
+export async function createPost(communityID, postTitle, postDescription, attachment64, bearerToken) {
+  try {
+    // Create an instance of the supabase client for the user to make a request:
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+    });
+    
+    // Get the required info about the user:
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
+    // Handle User Error:
+    if (userError) {
+      return { 
+        success: false,
+        message: userError.message 
+      };
+    }
+
+    // Insert the post using the authenticated user's ID
+    const { data, error } = await supabaseUser
+      .from('community_posts')
+      .insert([{
+        community_id: communityID,
+        profile_id: user.id,      
+        post_title: postTitle,
+        post_description: postDescription,
+        attachment_url: attachment64,
+        date_posted: new Date().toISOString()
+      }])
+      ;
+
+    if (error) {
+      console.error('Insert error:', error);
+      return { 
+        success: false, 
+        message: 'Insert error', 
+        data: null 
+      };
+    }
+
+    return { 
+      success: true, 
+      message: 'Successful post made!'
+      // data 
+    };  // data contains the inserted row(s)
+  }
+  catch (err) {
+    console.error('Unexpected error:', err);
+    return { 
+      success: false, 
+      message: 'Unexpected error',
+      data: null 
     };
   }
 }
