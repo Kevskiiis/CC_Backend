@@ -16,6 +16,8 @@ import {
     createPost
 } from '../utils/supabaseFuntions.js';
 
+import { createAnnouncement } from './api/announcement/createAnnouncement.js';
+
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
 
@@ -294,23 +296,60 @@ server.post('/join-community', async (req, res) => {
 server.post('/create-post', async (req, res) => {
     const {communityID, postTitle, postDescription, attachmentURL} = req.body;
     const bearerToken = req.headers['authorization'].slice(7); // We expect the Access Token here to be able to take any action.
-    // console.log('AuthToken: ' + bearerToken); 
+
+        const isInCommunity = await isUserInCommunity(communityID, bearerToken);
+
+        if (isInCommunity.success) {
+            const result = await createPost(communityID, postTitle, postDescription, attachmentURL, bearerToken);
     
-        const result = await createPost(communityID, postTitle, postDescription, attachmentURL, bearerToken);
+            if (result.success) {
+                return res.status(200).json({
+                    success: true,
+                    data: result.data,
+                    message: 'userInCommunity.message'
+                })
+            }
+    
+            return res.status(401).json({
+                    success: false,
+                    data: null,
+                    message: result.message
+            })
+        }
+        else {
+            return res.status(401).json({
+                    success: false,
+                    data: null,
+                    message: isInCommunity.message
+            })
+        }
+});
+
+server.post('/create-announcement', async (req, res) => {
+    const {communityID, announcementTitle, announcementDescription, attachment64, announcementRole} = req.body; 
+    const bearerToken = req.headers['authorization'].slice(7); // We expect the Access Token here to be able to take any action.
+
+    try {
+        const result = await createAnnouncement(communityID, announcementTitle, announcementDescription, attachment64, announcementRole, bearerToken);
 
         if (result.success) {
             return res.status(200).json({
                 success: true,
-                data: result.data,
-                message: 'userInCommunity.message'
+                message: 'Creating announcement successful!'
             })
         }
 
         return res.status(401).json({
-                success: false,
-                data: null,
-                message: result.message
+            success: false,
+            message: 'Creating announcement failed.'
         })
+    }   
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        })
+    }
 });
 
 // DELETE Methods:

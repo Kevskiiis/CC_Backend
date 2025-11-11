@@ -317,36 +317,39 @@ export async function getCommunities(userID) {
 }
 
 // POST RELATED FUNCTIONS: -------------------------
-export async function isUserInCommunity(communityID, userID) {
-  if (!communityID || !userID) {
+export async function isUserInCommunity(communityID, bearerToken) {
+  if (!communityID || !bearerToken) {
     return { success: false, message: 'Missing community or user ID.', data: null };
   }
 
-  // Ensure proper types
-  const communityInt = Number(communityID);
-  const userUUID = userID.trim();
+  // Create user client to call the function:
+  const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+  });
+
+  // Get User:
+  const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 
   try {
-    const { data, error } = await supabase
-    .from('community_members')
-    .select('*') 
-    .eq('community_id', communityInt)
-    .eq('member_id', userUUID)
-    .limit(1);
-
+    // Attempt to check using the Supabase function:
+    const {data, error } = await supabaseUser.rpc('is_user_in_community_v3', {p_community_id: communityID, p_user_id: user.id});
 
     if (error) {
       return { success: false, message: `Database error: ${error.message}`, data: null };
     }
 
-    if (data && data.length > 0) {
+    // Attain the boolean value from the table:
+    const isInCommunity = data?.[0]?.in_community ?? false;
+
+    if (isInCommunity) {
       return { success: true, message: 'The user is in this community.', data: true };
     } 
     else {
-      return { success: false, message: error, data: false };
+      return { success: false, message: 'User is not in the community.', data: false };
     }
 
-  } catch (err) {
+  } 
+  catch (err) {
     return { success: false, message: 'Unexpected error occurred.', data: null };
   }
 }
@@ -379,8 +382,7 @@ export async function createPost(communityID, postTitle, postDescription, attach
         post_description: postDescription,
         attachment_url: attachment64,
         date_posted: new Date().toISOString()
-      }])
-      ;
+      }]);
 
     if (error) {
       console.error('Insert error:', error);
