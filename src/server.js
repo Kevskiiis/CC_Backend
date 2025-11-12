@@ -17,6 +17,7 @@ import {
 } from '../utils/supabaseFuntions.js';
 
 import { createAnnouncement } from './api/announcement/createAnnouncement.js';
+import { joinCommunity } from './api/community_management/joinCommunity.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -255,43 +256,33 @@ server.post('/create-community', async (req, res) => {
 });
 
 server.post('/join-community', async (req, res) => {
-    const { enteredCode, userID } = req.body;
+    const { userID, communityCode } = req.body;
+    const bearerToken = req.headers['authorization'];
 
-    
+    try {   
+        const result = await joinCommunity(userID, communityCode, bearerToken); 
+
+        if (result.success) {
+            return res.status(200).json({
+                success: true,
+                message: result.message
+            })
+        }
+        else {
+            return res.status(401).json({
+                success: false,
+                message: result.message
+            })
+        }
+    }
+    catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to request call for join community at this time.'
+        })
+    }
 });
-
-// server.post('/create-post', async (req, res) => {
-//     const {communityID, userID, postTitle, postDescription, attachmentURL} = req.body;
-    
-//     // Verify user is in the community:
-//     const userInCommunity = await isUserInCommunity(communityID, userID);
-
-//     // Send the post: 
-//     if (userInCommunity.success) {
-//         const result = await createPost(communityID, userID, postTitle, postDescription, attachmentURL);
-
-//         if (result.success) {
-//             return res.status(200).json({
-//                 success: true,
-//                 data: result.data,
-//                 message: userInCommunity.message
-//             })
-//         }
-
-//         return res.status(500).json({
-//                 success: false,
-//                 data: null,
-//                 message: userInCommunity.message
-//         })
-//     }
-    
-//     // Decline the post:
-//     return res.status(401).json({
-//         success: false,
-//         data: null,
-//         message: 'The user is not in this community.'
-//     })
-// });
 
 server.post('/create-post', async (req, res) => {
     const {communityID, postTitle, postDescription, attachmentURL} = req.body;
@@ -354,7 +345,7 @@ server.post('/create-announcement', async (req, res) => {
 
 // DELETE Methods:
 server.delete('/leave-community', (req, res) => {
-
+    
 });
 
 server.delete('/delete-user', async (req, res) => {
