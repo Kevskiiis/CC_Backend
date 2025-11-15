@@ -18,6 +18,9 @@ import {
 
 import { createAnnouncement } from './api/announcement/createAnnouncement.js';
 import { joinCommunity } from './api/community_management/joinCommunity.js';
+import { approveJoinRequest } from './api/community_management/approveJoinRequest.js';
+import { declineJoinRequest } from './api/community_management/declineJoinRequest.js';
+import { getUserCommunities } from './api/community_management/getUserCommunities.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -31,38 +34,40 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
 // GET Methods:
-server.get('/get-communities', async(req, res) => { // must hit endpoint like this: /get-communities?userID={some ID here}
-    const { userID } = req.query;
-    console.log(userID);
-    if (!userID) {
-        return res.status(400).json({
-        success: false,
-        message: 'Missing userID in request.'
-        });
-    }
-
+server.get('/get-user-communities', async(req, res) => { // Requires access token. 
     try {
-        const result = await getCommunities(userID);
+        // Use access token to make the call: 
+        const bearerToken = req.headers['authorization'];
 
-        console.log('Retrieved data:', result.data);
+        // Attempt to fetch communities: 
+        const result = await getUserCommunities(bearerToken);
 
         if (result.success) {
             return res.status(200).json({
-                success: result.success,
-                communities: result.data
+                message: result.message,
+                communities: result.communities
             })
         }
 
-        return res.status(404).json({
-            success: result.success,
-            message: result.message
+        return res.status(401).json({
+            message: result.message,
+            communities: null
         })
     }
     catch (error) {
         return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching communities.'
+            message: 'Upexpected error occured.',
+            communities: null
         })
+    }
+});
+
+server.get('/get-community-posts', (req, res) => {
+    try {
+        
+    }
+    catch (error) {
+
     }
 });
 
@@ -284,6 +289,30 @@ server.post('/join-community', async (req, res) => {
     }
 });
 
+server.post('/approve-join-request', async (req, res) => {
+    const { newUserID, communityID } = req.body;
+    const adminBearerToken = req.headers['authorization'];
+    try{
+        const joinResult = await approveJoinRequest(newUserID,communityID, adminBearerToken);
+
+        if (joinResult.approved) {
+            return res.status(200).json({
+                success: joinResult.approved,
+                message: joinResult.result
+            })
+        }
+        else {
+            return res.status(401).json({
+                success: false,
+                message: joinResult.result
+            })
+        }
+    }
+    catch (error) {
+
+    }
+}); 
+
 server.post('/create-post', async (req, res) => {
     const {communityID, postTitle, postDescription, attachmentURL} = req.body;
     const bearerToken = req.headers['authorization'].slice(7); // We expect the Access Token here to be able to take any action.
@@ -346,6 +375,40 @@ server.post('/create-announcement', async (req, res) => {
 // DELETE Methods:
 server.delete('/leave-community', (req, res) => {
     
+});
+
+server.delete('/decline-join-request', async (req, res) => {
+    const { userID, communityID } = req.body;
+    const bearerToken = req.headers['authorization'];
+    
+    try {
+        console.log(`[/decline-join-request] Request received - userID: ${userID}, communityID: ${communityID}`);
+        
+        // Decline the result: 
+        const declineResult = await declineJoinRequest(userID, communityID, bearerToken);
+        
+        console.log(`[/decline-join-request] declineResult:`, declineResult);
+
+        if (declineResult.declined) {
+            return res.status(200).json({
+                success: true, 
+                message: 'The user was successfully declined.'
+            })
+        }
+        else {
+            return res.status(400).json({
+                success: false,
+                message: declineResult.result || 'The user was not declined. Try again.'
+            })
+        }
+    }
+    catch (error) {
+        console.error(`[/decline-join-request] Error:`, error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        })
+    }
 });
 
 server.delete('/delete-user', async (req, res) => {

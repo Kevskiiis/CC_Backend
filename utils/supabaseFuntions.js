@@ -95,7 +95,7 @@ export async function signIn (trimmedEmail, trimmedPassword) {
           message: error?.message || 'Invalid login credentials',
           userID: null,
           refresh_token: null,
-          accessToken: null,
+          accessToken: null
         }
       }
       else {
@@ -105,7 +105,7 @@ export async function signIn (trimmedEmail, trimmedPassword) {
           message: 'Login successful!',
           userID: data.user.id,
           refresh_token: data.session.refresh_token,
-          accessToken: data.session.access_token,
+          accessToken: data.session.access_token
         }
       }
     }  
@@ -317,94 +317,70 @@ export async function getCommunities(userID) {
 }
 
 // POST RELATED FUNCTIONS: -------------------------
-export async function isUserInCommunity(communityID, bearerToken) {
-  if (!communityID || !bearerToken) {
+export async function isUserInCommunity(communityID, userID) {
+  if (!communityID || !userID) {
     return { success: false, message: 'Missing community or user ID.', data: null };
   }
 
-  // Create user client to call the function:
-  const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${bearerToken}` } },
-  });
-
-  // Get User:
-  const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+  // Ensure proper types
+  const communityInt = Number(communityID);
+  const userUUID = userID.trim();
 
   try {
-    // Attempt to check using the Supabase function:
-    const {data, error } = await supabaseUser.rpc('is_user_in_community_v3', {p_community_id: communityID, p_user_id: user.id});
+    const { data, error } = await supabase
+    .from('community_members')
+    .select('*') 
+    .eq('community_id', communityInt)
+    .eq('member_id', userUUID)
+    .limit(1);
+
 
     if (error) {
       return { success: false, message: `Database error: ${error.message}`, data: null };
     }
 
-    // Attain the boolean value from the table:
-    const isInCommunity = data?.[0]?.in_community ?? false;
-
-    if (isInCommunity) {
+    if (data && data.length > 0) {
       return { success: true, message: 'The user is in this community.', data: true };
     } 
     else {
-      return { success: false, message: 'User is not in the community.', data: false };
+      return { success: false, message: error, data: false };
     }
 
-  } 
-  catch (err) {
+  } catch (err) {
     return { success: false, message: 'Unexpected error occurred.', data: null };
   }
 }
 
-export async function createPost(communityID, postTitle, postDescription, attachment64, bearerToken) {
+export async function createPost (communityID, profileID, postTitle, postDescription, attachment64) {
   try {
-    // Create an instance of the supabase client for the user to make a request:
-    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${bearerToken}` } },
-    });
-    
-    // Get the required info about the user:
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    const { data, error } = await supabase
+    .from('community_posts')
+    .insert([{
+      community_id: Number(communityID),
+      profile_id: profileID,
+      post_title: postTitle,
+      post_description: postDescription,
+      attachment_url: attachment64,
+      date_posted: new Date().toISOString()
+    }])
+    .select()
 
-    // Handle User Error:
-    if (userError) {
-      return { 
-        success: false,
-        message: userError.message 
-      };
+    if (!error) {
+      return {
+        success: true,
+        data: data
+      }
     }
 
-    // Insert the post using the authenticated user's ID
-    const { data, error } = await supabaseUser
-      .from('community_posts')
-      .insert([{
-        community_id: communityID,
-        profile_id: user.id,      
-        post_title: postTitle,
-        post_description: postDescription,
-        attachment_url: attachment64,
-        date_posted: new Date().toISOString()
-      }]);
-
-    if (error) {
-      console.error('Insert error:', error);
-      return { 
-        success: false, 
-        message: 'Insert error', 
-        data: null 
-      };
+    return {
+      success: false,
+      data: null
     }
-
-    return { 
-      success: true, 
-      message: 'Successful post made!'
-      // data 
-    };  // data contains the inserted row(s)
   }
-  catch (err) {
-    console.error('Unexpected error:', err);
-    return { 
-      success: false, 
-      message: 'Unexpected error',
-      data: null 
-    };
+  catch (error) {
+    return {
+      success: false,
+      data: null
+    }
   }
 }
