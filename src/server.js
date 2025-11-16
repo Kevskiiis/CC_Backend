@@ -21,6 +21,11 @@ import { joinCommunity } from './api/community_management/joinCommunity.js';
 import { approveJoinRequest } from './api/community_management/approveJoinRequest.js';
 import { declineJoinRequest } from './api/community_management/declineJoinRequest.js';
 import { getUserCommunities } from './api/community_management/getUserCommunities.js';
+import { getCommunityPosts } from './api/post/getCommunityPosts.js';
+import { getCommunityAnnouncements } from './api/announcement/getCommunityAnnouncements.js';
+import { getJoinQueue } from './api/community_management/getJoinQueue.js';
+import { isUserInThisCommunity } from './api/community/isUserInThisCommunity.js';
+import { isUserAdmin } from './api/community/isUserAdmin.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -62,12 +67,161 @@ server.get('/get-user-communities', async(req, res) => { // Requires access toke
     }
 });
 
-server.get('/get-community-posts', (req, res) => {
+server.get('/get-community-posts', async (req, res) => {
     try {
+        // Use access token to make the call: 
+        const bearerToken = req.headers['authorization'];
+
+        if (!bearerToken) {
+            return res.status(401).json({
+                message: 'Authorization token missing.',
+                communityPosts: null
+            });
+        }
         
+        // Get query params
+        const { communityID } = req.query;
+        if (!communityID) {
+            return res.status(400).json({
+                message: 'communityID query parameter is required.',
+                communityPosts: null
+            });
+        }
+
+        const isUserInCommunity = await isUserInThisCommunity(communityID, bearerToken);
+
+        // Use the function to get posts:
+        if (isUserInCommunity.success) {
+            const result = await getCommunityPosts(bearerToken, communityID);
+                
+            // Check for errors in the result
+            if (!result.success) {
+                return res.status(404).json({
+                    message: 'Could not retrieve any posts.',
+                    communityPosts: null
+                });
+            }
+    
+            // Return posts
+            return res.status(200).json({
+                message: 'Posts retrieved successfully.',
+                communityPosts: result.posts
+            });
+        }
+        else {
+            return res.status(401).json({
+                message: 'Not authorized to load the posts from this community.',
+                communityPosts: null
+            })
+        }
     }
     catch (error) {
+        return res.status(500).json({
+            message: 'Upexpected error occured.',
+            communitiesPosts: null
+        })
+    }
+});
 
+server.get('/get-community-announcements', async (req, res) => {
+    try {
+        // Extract the access token from headers
+        const bearerToken = req.headers['authorization'];
+
+        if (!bearerToken) {
+            return res.status(401).json({
+                message: 'Authorization token missing.',
+                communityAnnouncements: null
+            });
+        }
+        
+        // Get query params
+        const { communityID } = req.query;
+        if (!communityID) {
+            return res.status(400).json({
+                message: 'communityID query parameter is required.',
+                communityAnnouncements: null
+            });
+        }
+
+        // Check if user is a member of this community
+        const isUserInCommunity = await isUserInThisCommunity(communityID, bearerToken);
+
+        if (!isUserInCommunity.success) {
+            return res.status(401).json({
+                message: 'Not authorized to load the announcements from this community.',
+                communityAnnouncements: null
+            });
+        }
+
+        // Use the function to get announcements
+        const result = await getCommunityAnnouncements(bearerToken, communityID);
+
+        if (!result.success) {
+            return res.status(404).json({
+                message: 'Could not retrieve any announcements.',
+                communityAnnouncements: null
+            });
+        }
+
+        // Return announcements
+        return res.status(200).json({
+            message: 'Announcements retrieved successfully.',
+            communityAnnouncements: result.announcements
+        });
+
+    } catch (error) {
+        console.error("Unexpected error:", error);
+        return res.status(500).json({
+            message: 'Unexpected error occurred.',
+            communityAnnouncements: null
+        });
+    }
+});
+
+server.get('/get-community-join-queue', async (req, res) => {
+    try {
+        // Extract the access token from headers
+       const bearerToken = req.headers['authorization'];
+    
+       // Query Params
+       const { communityID } = req.query;
+
+       // Check if the user is an admin: 
+       const isAdmin = await isUserAdmin(communityID, bearerToken); 
+
+       // If the user is not an admin: 
+       if (isAdmin) {
+            const queue = await getJoinQueue(bearerToken, communityID);
+
+            if (queue.success) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Success in returning the queue for the community.',
+                    queue: queue.joinQueue
+                });
+            }
+
+            return res.status(401).json({
+                success: false,
+                message: 'Unable to get the queue for the community.', 
+                queue: null
+            })
+       }
+       else {
+            return res.status(401).json({
+                success: false,
+                message: 'Unathorized to get join queue.', 
+                queue: null
+            })
+       }
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Unexpected error occurred.',
+            queue: null
+        });
     }
 });
 

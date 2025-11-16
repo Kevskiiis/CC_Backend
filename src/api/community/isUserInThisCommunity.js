@@ -1,6 +1,6 @@
 import { getSupabaseUserClient } from "../supabase/localSupabaseClient.js";
 
-export async function isUserInCommunity (communityID, bearerToken) {
+export async function isUserInThisCommunity (communityID, bearerToken) {
     try {
         // Create Instance of the supbase client:
         const supabaseUser = await getSupabaseUserClient(bearerToken);

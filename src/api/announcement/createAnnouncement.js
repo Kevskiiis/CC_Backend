@@ -1,5 +1,5 @@
 import { getSupabaseUserClient } from "../supabase/localSupabaseClient.js";
-import { isUserInCommunity } from "../community/isUserInCommunity.js";
+import { isUserInThisCommunity } from "../community/isUserInThisCommunity.js";
 
 export async function createAnnouncement (communityID, announcementTitle, announcementDescription, attachment64, announcementRole, bearerToken) {
     try {
@@ -10,7 +10,7 @@ export async function createAnnouncement (communityID, announcementTitle, announ
         const { data: { user } } = await supabaseUser.auth.getUser();
 
         // Verify that the user is in the community:
-        const userInCommunityResult = await isUserInCommunity(communityID, bearerToken);
+        const userInCommunityResult = await isUserInThisCommunity(communityID, bearerToken);
     
         if (userInCommunityResult.success) {
             const {data, error} = await supabaseUser

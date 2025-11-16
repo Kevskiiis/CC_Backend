@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { getSupabaseUserClient } from "../supabase/localSupabaseClient.js";
 
 export async function getUserCommunities (bearerToken) {
