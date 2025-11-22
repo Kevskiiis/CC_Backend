@@ -2,6 +2,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
+import multer from 'multer';
 
 // Imported functions:
 import { validateNewAccount } from '../utils/authValidator.js';
@@ -26,6 +27,10 @@ import { getCommunityAnnouncements } from './api/announcement/getCommunityAnnoun
 import { getJoinQueue } from './api/community_management/getJoinQueue.js';
 import { isUserInThisCommunity } from './api/community/isUserInThisCommunity.js';
 import { isUserAdmin } from './api/community/isUserAdmin.js';
+import { changeJoinCode } from './api/community/changeJoinCode.js';
+import { getCommunityMembers } from './api/community_management/getCommunityMembers.js';
+import { adminCommunityCount } from './api/community/adminCommunityCount.js';
+import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -37,6 +42,10 @@ const PORT = process.env.PORT || 3000;
 // Middleware:
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
+
+// Store uploaded files in memory instead of disk
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // GET Methods:
 server.get('/get-user-communities', async(req, res) => { // Requires access token. 
@@ -64,6 +73,33 @@ server.get('/get-user-communities', async(req, res) => { // Requires access toke
             message: 'Upexpected error occured.',
             communities: null
         })
+    }
+});
+
+server.get('/get-community-members', async(req, res) => {
+    try {
+        // Use access token to make the call: 
+        const bearerToken = req.headers['authorization'];
+
+        // Get Query Param:
+        const { communityID } = req.query;
+
+        // Attempt to retrieve members: 
+        const result = await getCommunityMembers(bearerToken, communityID);
+
+        // Handle the return status codes based on the success:
+        if (!result.success) {
+            return res.status(401).json(result);
+        }
+
+        return res.status(200).json(result);
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Unexpected error ocurred with the server.",
+            members: null
+        });
     }
 });
 
@@ -303,8 +339,9 @@ server.post('/sign-out', async (req, res) => {
     }
 });
 
-server.post('/create-account', async (req, res) => {
+server.post('/create-account', upload.single('avatar'), async (req, res) => {
     const { firstName, lastName, email, password } = req.body;
+    const {originalname, mimetype, buffer} = req.file;
     
     try {
         // Trim the inputs from trailing white spaces:
@@ -468,14 +505,16 @@ server.post('/approve-join-request', async (req, res) => {
 }); 
 
 server.post('/create-post', async (req, res) => {
-    const {communityID, postTitle, postDescription, attachmentURL} = req.body;
-    const bearerToken = req.headers['authorization'].slice(7); // We expect the Access Token here to be able to take any action.
+    const {communityID, userID, postTitle, postDescription, attachmentURL} = req.body;
+    const bearerToken = req.headers['authorization']; // We expect the Access Token here to be able to take any action.
 
-        const isInCommunity = await isUserInCommunity(communityID, bearerToken);
+        const isInCommunity = await isUserInThisCommunity(communityID, bearerToken);
+
+        console.log(isInCommunity);
 
         if (isInCommunity.success) {
-            const result = await createPost(communityID, postTitle, postDescription, attachmentURL, bearerToken);
-    
+            const result = await createPost(communityID, userID, postTitle, postDescription, attachmentURL);
+            console.log(result);
             if (result.success) {
                 return res.status(200).json({
                     success: true,
@@ -526,9 +565,80 @@ server.post('/create-announcement', async (req, res) => {
     }
 });
 
-// DELETE Methods:
-server.delete('/leave-community', (req, res) => {
+// PATCH Methods:
+server.patch('/change-join-code', async (req, res) => {
+    try {
+        // Bearer Token:
+        const bearerToken = req.headers['authorization'];
     
+        // Community ID:
+        const { communityID }= req.body;
+
+        // Check if the user is an admin:
+        const isAdmin = await isUserAdmin(communityID, bearerToken);
+
+        // If admin, change the code of community:
+        if (isAdmin) {
+            // Insert the new code into the community via function:
+            const changeRequestResult = await changeJoinCode(communityID, bearerToken);
+            return res.status(200).json(changeRequestResult);
+        }
+    }
+    catch (error) {
+
+    }
+});
+
+// DELETE Methods:
+server.delete('/leave-community', async (req, res) => { // Takes in Params:
+    try {
+        // Bearer Token:
+        const bearerToken = req.headers['authorization'];
+    
+        // Community ID:
+        const { communityID } = req.query;
+
+        console.log(communityID); 
+
+        // See if the user is an admin:
+        const isAdmin = await isUserAdmin(communityID, bearerToken);
+
+        // console.log(isAdmin); 
+
+        // If they are admin, handle edge cases:
+        if (isAdmin) {
+            const adminCount = await adminCommunityCount(communityID, bearerToken);
+
+            console.log(adminCount); 
+
+            if (!adminCount.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Failed to obtain the other admin members.'
+                })
+            }
+
+            if (adminCount.count >= 1) {
+                const leaveStatus = await leaveCommunity(communityID, bearerToken);
+                return res.status(leaveCommunity.success ? 200 : 400).json(leaveStatus); 
+            }
+            else {
+                return {
+                    success: false,
+                    message: "You must promote an member to admin status within your community before leaving."
+                }
+            }
+        }
+        // If they are not, then simply remove them from the community: 
+        const leaveStatus = await leaveCommunity(communityID, bearerToken); 
+        return res.status(leaveCommunity.success ? 200 : 400).json(leaveStatus);
+    }
+    catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'An unexpected error occured.'
+        })
+    }
 });
 
 server.delete('/decline-join-request', async (req, res) => {

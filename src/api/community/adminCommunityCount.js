@@ -1,12 +1,14 @@
-import { getSupabaseUserClient } from "../supabase/localSupabaseClient";
+import { getSupabaseUserClient } from "../supabase/localSupabaseClient.js";
 
 export async function adminCommunityCount (communityID, bearerToken) {
     try {
         // Create the client:
-        const supabaseUser = getSupabaseUserClient(bearerToken); 
+        const supabaseUser = await getSupabaseUserClient(bearerToken); 
 
         // Extract the user:
         const {data: {user}, error: userError} = await supabaseUser.auth.getUser();
+
+        // console.log(user); 
 
         if (userError) {
             return {
@@ -18,6 +20,8 @@ export async function adminCommunityCount (communityID, bearerToken) {
         // Try to get the community count by calling the Supabase SQL function: 
         const {data: funcData, error: funcError} = await supabaseUser.rpc('get_admin_count_excluding_member', {community_id: communityID, member_id: user.id});
 
+        console.log(funcData); 
+        console.log(funcError); 
         // Handle SQL function call error:
         if (funcError) {
             return {
@@ -29,7 +33,7 @@ export async function adminCommunityCount (communityID, bearerToken) {
         // Return count: 
         return {
             success: true,
-            count: data
+            count: funcData
         }
     }
     catch (error) { 

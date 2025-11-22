@@ -360,8 +360,7 @@ export async function createPost (communityID, profileID, postTitle, postDescrip
       profile_id: profileID,
       post_title: postTitle,
       post_description: postDescription,
-      attachment_url: attachment64,
-      date_posted: new Date().toISOString()
+      attachment_url: attachment64
     }])
     .select()
 
