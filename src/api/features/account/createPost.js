@@ -1,5 +1,6 @@
 import { getSupabaseUserClient } from "../../supabase/localSupabaseClient.js";
 
+
 export async function createPost (communityID, profileID, postTitle, postDescription, attachment64) {
   try {
     const { data, error } = await supabase

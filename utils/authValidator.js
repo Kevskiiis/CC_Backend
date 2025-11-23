@@ -1,20 +1,4 @@
-// NPM Packages:
-import axios from "axios";
-import dotenv from 'dotenv';
-// import { createClient } from "@supabase/supabase-js";
-
-// Supabase Functions:
-// import { findValueInTable } from "./supabaseFuntions.js";
-
-// Enviroment Variables:
-dotenv.config({path: '../.env'});
-
-// Supbase configuration:
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
-// Start Supabase Client:
-// const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { ErrorHandler } from "../src/objects/errorHandler.js";
 
 // Email Validator:
 // export async function emailValidator (email) {
@@ -82,18 +66,18 @@ export async function nameValidator (name) {
 
 // Validate profile:
 export async function validateNewAccount(firstName, lastName, email, password) {
-	try {
-      // Run all validators
-      const firstNameValidation = await nameValidator(firstName);
-      const lastNameValidation = await nameValidator(lastName);
-      const emailValidation = await nameValidator(email)
-      const passwordValidation = await passwordValidator(password);
+    const errors = [];
 
-      // Return value;
-      return firstNameValidation && lastNameValidation && emailValidation && passwordValidation;
-	} 
-  catch (error) {
-      console.error('Error validating new account:', error);
-      return false; 
-	}
+    // Run all validators
+    if (!(await nameValidator(firstName))) errors.push("Invalid first name");
+    if (!(await nameValidator(lastName))) errors.push("Invalid last name");
+    if (!(await nameValidator(email))) errors.push("Invalid email");
+    if (!(await passwordValidator(password))) errors.push("Password must be at least 10 characters long and include a capital letter, a lowercase letter, a number, and a special character.");
+
+    if (errors.length > 0) {
+        throw new ErrorHandler(errors.join(", "), 400);
+    }
+
+    // Return value;
+    return true;
 }

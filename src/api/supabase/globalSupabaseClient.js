@@ -1,4 +1,5 @@
 // NPM Modules:
+import dotenv from 'dotenv';
 import { createClient } from "@supabase/supabase-js";
 
 // Enviroment Variables:

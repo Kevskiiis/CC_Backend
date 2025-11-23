@@ -32,6 +32,18 @@ import { getCommunityMembers } from './api/community_management/getCommunityMemb
 import { adminCommunityCount } from './api/community/adminCommunityCount.js';
 import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 
+// Authentication Handler Functions:
+import { createAccount } from './authenticationHandlers/createAccount.js';
+
+// Image Handler Functions:
+import { imageUploader } from './imageHandlers/imageUploader.js';
+
+// Helper Functions:
+import { trimStrings } from './helpers/strings/trimStrings.js';
+
+// Objects:
+import { ErrorHandler } from './objects/errorHandler.js';
+
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
 
@@ -44,8 +56,8 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
 // Store uploaded files in memory instead of disk
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+// const storage = multer.memoryStorage();
+// const upload = multer({ storage });
 
 // GET Methods:
 server.get('/get-user-communities', async(req, res) => { // Requires access token. 
@@ -339,53 +351,32 @@ server.post('/sign-out', async (req, res) => {
     }
 });
 
-server.post('/create-account', upload.single('avatar'), async (req, res) => {
-    const { firstName, lastName, email, password } = req.body;
-    const {originalname, mimetype, buffer} = req.file;
-    
+server.post('/create-account', async (req, res) => {
     try {
-        // Trim the inputs from trailing white spaces:
-        let [trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword] = [firstName, lastName, email, password].map(str => str.trim());
+        // Obtain all the features that we need from middleware: 
+        const { firstName, lastName, email, password } = req.body;
 
-        // Validate new account first:
-        const newAccountStatus = await validateNewAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
+        // Handle if one the fields is missing:
+        if (!firstName || !lastName || !email || !password) {
+            throw new ErrorHandler("Missing required fields.", 400);
+        }
+
+        // Trim the inputs from trailing white spaces:
+        const [trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword] = trimStrings([firstName, lastName, email, password]);
+        
+        // Validate new account first: function throws Errors if not valid for the catch block to handle.
+        await validateNewAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
 
         // Create new account: 
-        if (newAccountStatus) {
-            const result = await createNewAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
+        const result = await createAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
 
-            if (result.errorStatus) {
-                return res.status(500).json({
-                    sucess: false,
-                    sucessMessage: null,
-                    errorStatus: true,
-                    errorMessage: result.errorMessage
-                })
-            }
-            else {
-                return res.status(200).json({
-                    sucess: true,
-                    sucessMessage: 'Account was successfully created.',
-                    errorStatus: false,
-                    errorMessage: null
-                })
-            } 
-        }
-        else {
-            return res.status(500).json({
-                sucess: false,
-                sucessMessage: null,
-                errorStatus: true,
-                errorMessage: "We couldn't create your account. Please double-check that all fields are filled out, and your password is at least 10 characters long with a mix of uppercase and lowercase letters, a number, and a special character."
-            })
-        }
+        // Account was successfully create:
+        return res.status(200).json(result);
     } 
     catch (err) {
-        return res.status(500).json({
-                sucess: false,
-                sucessMessage: null,
-                errorStatus: true,
-                errorMessage: 'The server is unable to create accounts at this time. Please try again later.'
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message
         })
     }
 });
