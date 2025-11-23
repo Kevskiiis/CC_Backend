@@ -8,7 +8,7 @@ import multer from 'multer';
 import { validateNewAccount } from '../utils/authValidator.js';
 import { 
     createNewAccount, 
-    signIn, 
+    // signIn, 
     signOut, 
     refreshSession, 
     createCommunity,
@@ -34,6 +34,7 @@ import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 
 // Authentication Handler Functions:
 import { createAccount } from './authenticationHandlers/createAccount.js';
+import { signIn } from './authenticationHandlers/signIn.js';
 
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
@@ -274,48 +275,30 @@ server.get('/get-community-join-queue', async (req, res) => {
 });
 
 // POST Methods: 
-
-server.post('/sign-in', async (req, res) => {
-    const { email, password } = req.body;
-
+server.post('/sign-in', async (req, res) => { // Finalized
     try {
-        // Trim any trailing spaces: 
-        let [trimmedEmail, trimmedPassword] = [email, password].map(str => str.trim());
+        // Obtain the form body:
+        const { email, password } = req.body;
+        if (!email || !password) {
+            throw new ErrorHandler("Missing required fields.", 400);
+        }
+
+        // Trim any trailing spaces in the inputs: 
+        const [trimmedEmail, trimmedPassword] = trimStrings([email, password]);
 
         // Attempt to sign-in via Supabase:
         const result = await signIn(trimmedEmail, trimmedPassword);
 
-        // Send data back:
-        if (result.success) {
-            return res.status(200).json({
-                success: true, 
-                message: result.message,
-                userID: result.userID,
-                refreshToken: result.refresh_token,
-                accessToken: result.accessToken
-            })
-        }
-        
-        // Success:
-        return res.status(401).json({
-            success: false,
-            message: result.message,
-            userID: null,
-            refreshToken: null,
-            accessToken: null
-        })
+        // Return data if successful:
+        return res.status(200).json(result); 
     } 
     catch (err) {
-        return res.status(500).json({
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: 'Cannot sign in at this time.',
-            userID: null,
-            refreshToken: null,
-            accessToken: null
+            message: err.message
         })
     }
 });
-
 
 server.post('/sign-out', async (req, res) => {
     const { userID } = req.body;
@@ -351,7 +334,7 @@ server.post('/sign-out', async (req, res) => {
     }
 });
 
-server.post('/create-account', async (req, res) => {
+server.post('/create-account', async (req, res) => { // Finalized
     try {
         // Obtain all the features that we need from middleware: 
         const { firstName, lastName, email, password } = req.body;
