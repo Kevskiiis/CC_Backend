@@ -36,6 +36,7 @@ import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 import { createAccount } from './authenticationHandlers/createAccount.js';
 import { signIn } from './authenticationHandlers/signIn.js';
 import { signOut } from './authenticationHandlers/signOut.js';
+import { restoreSession } from './authenticationHandlers/restoreSession.js';
 
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
@@ -307,7 +308,7 @@ server.post('/sign-out', async (req, res) => { // Finalized but requires testing
         const accessToken = req.headers.authorization.replace(/^Bearer\s+/i, ''); 
         const refreshToken = req.headers["refreshtoken"]; 
         // Handle edge case where the required tokens are not entered:
-        if (!accessToken || !refreshToken) throw new ErrorHandler("There is missing required data to sign-out. Please try again.");
+        if (!accessToken || !refreshToken) throw new ErrorHandler("There is missing data that is required to sign-out. Please try again.");
         
         // Call the sign out function to complete the task: 
         const result = await signOut(accessToken, refreshToken);
@@ -352,45 +353,26 @@ server.post('/create-account', async (req, res) => { // Finalized
     }
 });
 
-server.post('/restore-session', async (req, res) => {
+server.post('/restore-session', async (req, res) => { // Finalized
     try {
         // Accept refresh token in order to refresh the session:
         const refreshToken = req.headers["refreshtoken"];
         
+        // Handle in case the refresh token is not provided:
+        if (!refreshToken) throw new ErrorHandler("There is missing data that is required to restore session.", 400);
+
+        // Attempt to restore the session: 
+        const result = await restoreSession(refreshToken);
+        
+        // Return results:
+        return res.status(200).json(result);
     }
     catch (err) {
-
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'An unexpected error occurred with the server.'
+        })
     }
-    // const { refreshToken } = req.body;
-    
-    // if (!refreshToken) {
-    //     return res.status(400).json({
-    //         success: false,
-    //         message: "Refresh token is required.",
-    //         data: null
-    //     });
-    // }
-
-    // try {
-    //     const result = await refreshSession(refreshToken);
-
-    //     if (!result.success) {
-    //         return res.status(401).json({
-    //             success: false,
-    //             message: result.message,
-    //             data: null
-    //         });
-    //     }
-
-    //     return res.status(200).json(result);
-    // }
-    // catch (error) {
-    //     return res.status(500).json({
-    //         success: false,
-    //         message: error.message || 'An unexpected error occurred',
-    //         data: null
-    //     });
-    // }
 });
 
 server.post('/create-community', async (req, res) => {
