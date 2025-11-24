@@ -9,7 +9,7 @@ import { validateNewAccount } from '../utils/authValidator.js';
 import { 
     createNewAccount, 
     // signIn, 
-    signOut, 
+    // signOut, 
     refreshSession, 
     createCommunity,
     getCommunities,
@@ -35,6 +35,7 @@ import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 // Authentication Handler Functions:
 import { createAccount } from './authenticationHandlers/createAccount.js';
 import { signIn } from './authenticationHandlers/signIn.js';
+import { signOut } from './authenticationHandlers/signOut.js';
 
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
@@ -300,36 +301,23 @@ server.post('/sign-in', async (req, res) => { // Finalized
     }
 });
 
-server.post('/sign-out', async (req, res) => {
-    const { userID } = req.body;
-
-    if (!userID) {
-        return res.status(400).json({
-            success: false,
-            message: 'userID is required'
-        });
-    }
-
+server.post('/sign-out', async (req, res) => { // Finalized but requires testing! 
     try {
-        const error = await signOut(userID.trim())
-
-        if (error) {
-            return res.status(500).json({
-                success: false,
-                message: error.message
-            })
-        }
-        else {
-            return res.status(200).json({
-                success: true,
-                message: 'Logged out successfully!'
-            }) 
-        }
+        // Accept tokens to kill the session attached to them:
+        const accessToken = req.headers.authorization.replace(/^Bearer\s+/i, ''); 
+        const refreshToken = req.headers["refreshtoken"]; 
+        // Handle edge case where the required tokens are not entered:
+        if (!accessToken || !refreshToken) throw new ErrorHandler("There is missing required data to sign-out. Please try again.");
+        
+        // Call the sign out function to complete the task: 
+        const result = await signOut(accessToken, refreshToken);
+        // Return the result:
+        return res.status(200).json(result); 
     }
-    catch (error) {
-        return res.status(500).json({
+    catch (err) { // Handling & Catching Errors here:
+        return res.status(err.statusCode || 500).json({
                 success: false,
-                message: error.message || 'An unexpected error occurred'
+                message: err.message || 'An unexpected error occurred with the server.'
         })
     }
 });
@@ -359,42 +347,50 @@ server.post('/create-account', async (req, res) => { // Finalized
     catch (err) {
         return res.status(err.statusCode || 500).json({
             success: false,
-            message: err.message
+            message: err.message || 'An unexpected error occurred with the server.'
         })
     }
 });
 
 server.post('/restore-session', async (req, res) => {
-    const { refreshToken } = req.body;
-    
-    if (!refreshToken) {
-        return res.status(400).json({
-            success: false,
-            message: "Refresh token is required.",
-            data: null
-        });
-    }
-
     try {
-        const result = await refreshSession(refreshToken);
-
-        if (!result.success) {
-            return res.status(401).json({
-                success: false,
-                message: result.message,
-                data: null
-            });
-        }
-
-        return res.status(200).json(result);
+        // Accept refresh token in order to refresh the session:
+        const refreshToken = req.headers["refreshtoken"];
+        
     }
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message || 'An unexpected error occurred',
-            data: null
-        });
+    catch (err) {
+
     }
+    // const { refreshToken } = req.body;
+    
+    // if (!refreshToken) {
+    //     return res.status(400).json({
+    //         success: false,
+    //         message: "Refresh token is required.",
+    //         data: null
+    //     });
+    // }
+
+    // try {
+    //     const result = await refreshSession(refreshToken);
+
+    //     if (!result.success) {
+    //         return res.status(401).json({
+    //             success: false,
+    //             message: result.message,
+    //             data: null
+    //         });
+    //     }
+
+    //     return res.status(200).json(result);
+    // }
+    // catch (error) {
+    //     return res.status(500).json({
+    //         success: false,
+    //         message: error.message || 'An unexpected error occurred',
+    //         data: null
+    //     });
+    // }
 });
 
 server.post('/create-community', async (req, res) => {
