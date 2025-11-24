@@ -11,7 +11,7 @@ import {
     // signIn, 
     // signOut, 
     refreshSession, 
-    createCommunity,
+    // createCommunity,
     getCommunities,
     isUserInCommunity,
     createPost
@@ -38,6 +38,9 @@ import { signIn } from './authenticationHandlers/signIn.js';
 import { signOut } from './authenticationHandlers/signOut.js';
 import { restoreSession } from './authenticationHandlers/restoreSession.js';
 
+// Community Handler Functions:
+import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
+
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
 
@@ -46,6 +49,7 @@ import { trimStrings } from './helpers/strings/trimStrings.js';
 
 // Objects:
 import { ErrorHandler } from './objects/errorHandler.js';
+import authMiddleware from './middleware/authMiddleware.js';
 
 // Enviroment Variables:
 dotenv.config({path: '../.env'});
@@ -58,9 +62,9 @@ const PORT = process.env.PORT || 3000;
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
-// Store uploaded files in memory instead of disk
-// const storage = multer.memoryStorage();
-// const upload = multer({ storage });
+// Store uploaded files in memory instead of disk:
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // GET Methods:
 server.get('/get-user-communities', async(req, res) => { // Requires access token. 
@@ -375,30 +379,27 @@ server.post('/restore-session', async (req, res) => { // Finalized
     }
 });
 
-server.post('/create-community', async (req, res) => {
-    const { communityName, communityBio, attachment, userID } = req.body; // Attachment = Image, must be a base64 string.
-
+server.post('/create-community', authMiddleware, upload.single("communityImage"), async (req, res) => { // Finalized + A little more testing.
     try {
-        const result = await createCommunity (communityName, communityBio, attachment, userID);
+        // Collect the client & user:
+        const supabaseClient = req.supabase; 
+        const user = req.user;
 
-        if (result.success) {
-            return res.status(200).json({
-                success: result.success,
-                message: result.message,
-                community: result.community
-            })
-        }
-        else {
-            return res.status(500).json({
-                success: result.success,
-                message: result.message
-            })
-        }
+        // Collect the send over image: 
+        const communityImage = req.file;
+        const { communityName, communityBio} = req.body;
+        const [trimmedCommunityName, trimmedCommunityBio] = trimStrings([communityName, communityBio]);
+
+        // Create new community: 
+        const result = await createCommunity(trimmedCommunityName, trimmedCommunityBio, communityImage, user.id, supabaseClient);
+
+        // If creation is successful, then return the result:
+        return res.status(200).json(result); 
     } 
     catch (err) {
-        return res.status(500).json({
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: 'Failed to request call for create community at this time.'
+            message: err.message || 'An unexpected error occurred with the server.'
         })
     }
 });

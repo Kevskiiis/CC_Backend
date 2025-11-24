@@ -1,32 +1,23 @@
-import { supabase } from "../api/supabase/globalSupabaseClient.js";
-import { getSupabaseUserClient } from "../api/supabase/localSupabaseClient.js";
+import { supabase } from "../api/supabase/privalagedSupabaseClient.js";
+import { ErrorHandler } from "../objects/errorHandler.js";
 
-export async function imageUploader (filePath, image, accessToken) {
-    const supabaseUser = await getSupabaseUserClient(accessToken); 
-
-    console.log(supabaseUser);
-
-    // console.log(image);
-    // Upload file to bucket:
-    // console.log(accessToken);
-    const { data, error } = await supabaseUser.storage
-    .from('profiles')
+export async function imageUploader (bucketName, filePath, image) {
+    const { data, error } = await supabase.storage
+    .from(bucketName)
     .upload(filePath, image.buffer, {
       contentType: image.mimetype,
-      upsert: true // overwrite if exists
+      upsert: true 
     });
 
-    console.log(error);
-
+    // Handle supabase storage error:
     if (error) {
-        return {
-            success: false,
-            message: 'Failed to upload the image.'
-        }
+        throw new ErrorHandler(`Failed to upload image: ${error.message}. Try again!`, 500);
     }
 
+    // Success
     return {
         success: true,
-        message: 'Image was uploaded correcttly!'
-    }
+        message: 'Image was uploaded correctly!',
+        data: data 
+    };
 }
