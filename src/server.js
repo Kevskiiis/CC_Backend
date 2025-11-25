@@ -27,7 +27,7 @@ import { getCommunityAnnouncements } from './api/announcement/getCommunityAnnoun
 import { getJoinQueue } from './api/community_management/getJoinQueue.js';
 import { isUserInThisCommunity } from './api/community/isUserInThisCommunity.js';
 import { isUserAdmin } from './api/community/isUserAdmin.js';
-import { changeJoinCode } from './api/community/changeJoinCode.js';
+// import { changeJoinCode } from './api/community/changeJoinCode.js';
 import { getCommunityMembers } from './api/community_management/getCommunityMembers.js';
 import { adminCommunityCount } from './api/community/adminCommunityCount.js';
 import { leaveCommunity } from './api/community_management/leaveCommunity.js';
@@ -42,6 +42,7 @@ import { restoreSession } from './authenticationHandlers/restoreSession.js';
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
+import { changeJoinCode } from './communityHandlers/patchMethods/changeJoinCode.js';
 
 // Community Helper Functions:
 import { isUserAnAdmin } from './communityHelpers/isUserAnAdmin.js';
@@ -518,26 +519,27 @@ server.post('/create-announcement', async (req, res) => {
 });
 
 // PATCH Methods:
-server.patch('/change-join-code', async (req, res) => {
+server.patch('/change-join-code', authMiddleware, async (req, res) => { // Finalized: Requires AuthToken, CommunityID
     try {
-        // Bearer Token:
-        const bearerToken = req.headers['authorization'];
-    
-        // Community ID:
-        const { communityID }= req.body;
+        // Extract the required data:
+        const user = req.user; 
+        const supabaseClient = req.supabase;
+        const { communityID } = req.body;
 
         // Check if the user is an admin:
-        const isAdmin = await isUserAdmin(communityID, bearerToken);
+        const isAdmin = await isUserAnAdmin(communityID, user.id, supabaseClient);
 
         // If admin, change the code of community:
         if (isAdmin) {
-            // Insert the new code into the community via function:
-            const changeRequestResult = await changeJoinCode(communityID, bearerToken);
+            const changeRequestResult = await changeJoinCode(communityID, supabaseClient);
             return res.status(200).json(changeRequestResult);
         }
     }
-    catch (error) {
-
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
     }
 });
 
