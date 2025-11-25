@@ -4,8 +4,6 @@ export default async function authMiddleware (req, res, next) {
     // Slice away the "Bearer " part. Only obtain token.
     const accessToken = req.headers['authorization']?.trim();
 
-    // console.log(accessToken); 
-
     // Handle if there is not token provided: 
     if (!accessToken) {
         return res.status(500).json({

@@ -1,10 +1,8 @@
 import { getSupabaseUserClient } from "../supabase/localSupabaseClient.js";
 
-export async function joinCommunity (userID, communityCode, bearerToken) {
+export async function joinCommunity (userID, communityCode, supabaseClient) {
     try {
-        const supabaseUser = await getSupabaseUserClient(bearerToken);
-
-        const { data, error } = await supabaseUser.rpc(
+        const { data, error } = await supabaseClient.rpc(
             'request_to_join_community',
             { p_profile_id: userID, p_join_code: communityCode }
         );

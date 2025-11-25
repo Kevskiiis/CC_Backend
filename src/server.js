@@ -18,7 +18,7 @@ import {
 } from '../utils/supabaseFuntions.js';
 
 import { createAnnouncement } from './api/announcement/createAnnouncement.js';
-import { joinCommunity } from './api/community_management/joinCommunity.js';
+// import { joinCommunity } from './api/community_management/joinCommunity.js';
 import { approveJoinRequest } from './api/community_management/approveJoinRequest.js';
 import { declineJoinRequest } from './api/community_management/declineJoinRequest.js';
 import { getUserCommunities } from './api/community_management/getUserCommunities.js';
@@ -40,6 +40,7 @@ import { restoreSession } from './authenticationHandlers/restoreSession.js';
 
 // Community Handler Functions:
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
+import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
@@ -404,31 +405,21 @@ server.post('/create-community', authMiddleware, upload.single("communityImage")
     }
 });
 
-server.post('/join-community', async (req, res) => {
-    const { userID, communityCode } = req.body;
-    const bearerToken = req.headers['authorization'];
+server.post('/join-community', authMiddleware, async (req, res) => { // Finalized:
+    try {
+        // Extract the required data:
+        const user = req.user;
+        const supabaseClient = req.supabase; 
+        const { communityCode } = req.body;
 
-    try {   
-        const result = await joinCommunity(userID, communityCode, bearerToken); 
-
-        if (result.success) {
-            return res.status(200).json({
-                success: true,
-                message: result.message
-            })
-        }
-        else {
-            return res.status(401).json({
-                success: false,
-                message: result.message
-            })
-        }
+        // Attempt to join community:
+        const result = await joinCommunity(user.id, communityCode, supabaseClient); 
+        return res.status(200).json(result); 
     }
-    catch (error) {
-        console.log(error);
-        return res.status(500).json({
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: 'Failed to request call for join community at this time.'
+            message: err.message || 'Failed to request call for join community at this time.'
         })
     }
 });
