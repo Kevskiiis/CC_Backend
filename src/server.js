@@ -14,10 +14,10 @@ import {
     // createCommunity,
     getCommunities,
     isUserInCommunity,
-    createPost
+    // createPost
 } from '../utils/supabaseFuntions.js';
 
-import { createAnnouncement } from './api/announcement/createAnnouncement.js';
+// import { createAnnouncement } from './api/announcement/createAnnouncement.js';
 // import { joinCommunity } from './api/community_management/joinCommunity.js';
 import { approveJoinRequest } from './api/community_management/approveJoinRequest.js';
 import { declineJoinRequest } from './api/community_management/declineJoinRequest.js';
@@ -43,6 +43,8 @@ import { createCommunity } from './communityHandlers/postMethods/createCommunity
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
 import { changeJoinCode } from './communityHandlers/patchMethods/changeJoinCode.js';
+import { createPost } from './communityHandlers/postMethods/createPost.js';
+import { createAnnouncement } from './communityHandlers/postMethods/createAnnouncement.js';
 
 // Community Helper Functions:
 import { isUserAnAdmin } from './communityHelpers/isUserAnAdmin.js';
@@ -457,63 +459,57 @@ server.post('/approve-join-request', authMiddleware, async (req, res) => { // Fi
     }
 }); 
 
-server.post('/create-post', async (req, res) => {
-    const {communityID, userID, postTitle, postDescription, attachmentURL} = req.body;
-    const bearerToken = req.headers['authorization']; // We expect the Access Token here to be able to take any action.
+server.post('/create-post', authMiddleware, upload.single("postImage"), async (req, res) => { // Temp Finalized
+    try {
+        // Extract the client & user:
+        const supabaseClient = req.supabase;
+        const user = req.user; // Extract user id
 
-        const isInCommunity = await isUserInThisCommunity(communityID, bearerToken);
-
-        console.log(isInCommunity);
-
-        if (isInCommunity.success) {
-            const result = await createPost(communityID, userID, postTitle, postDescription, attachmentURL);
-            console.log(result);
-            if (result.success) {
-                return res.status(200).json({
-                    success: true,
-                    data: result.data,
-                    message: 'userInCommunity.message'
-                })
-            }
-    
-            return res.status(401).json({
-                    success: false,
-                    data: null,
-                    message: result.message
-            })
+        // Extract the required text data:
+        const { communityID, communityName, postTitle, postDescription } = req.body;
+        if (!communityID || !communityName || !postTitle || !postDescription) {
+            throw new ErrorHandler("Required information is missing. Please enter it.", 400);
         }
-        else {
-            return res.status(401).json({
-                    success: false,
-                    data: null,
-                    message: isInCommunity.message
-            })
-        }
+
+        // Extract the image if one:
+        const postImage = req.file;
+
+        // Call create post function:
+        const result = await createPost(communityID, communityName, user.id, postTitle, postDescription, postImage, supabaseClient);
+        return res.status(200).json(result);
+    }
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
+    }
 });
 
-server.post('/create-announcement', async (req, res) => {
-    const {communityID, announcementTitle, announcementDescription, attachment64, announcementRole} = req.body; 
-    const bearerToken = req.headers['authorization'].slice(7); // We expect the Access Token here to be able to take any action.
-
+server.post('/create-announcement', authMiddleware, upload.single("announcementImage"), async (req, res) => { // Temp Finalized
     try {
-        const result = await createAnnouncement(communityID, announcementTitle, announcementDescription, attachment64, announcementRole, bearerToken);
+        // Extract the client & user:
+        const supabaseClient = req.supabase;
+        const user = req.user; // Extract user id
 
-        if (result.success) {
-            return res.status(200).json({
-                success: true,
-                message: 'Creating announcement successful!'
-            })
+        // Extract the required text data:
+        const { communityID, communityName, announcementTitle, announcementDescription, announcementRole } = req.body;
+        if (!communityID || !communityName || !announcementTitle || !announcementDescription || !announcementRole) {
+            throw new ErrorHandler("Required information is missing. Please enter it.", 400);
         }
 
-        return res.status(401).json({
+        // Extract the image if one:
+        const announcementImage = req.file;
+        console.log(announcementImage); 
+
+        // Call create announcement function:
+        const result = await createAnnouncement(communityID, communityName, user.id, announcementTitle, announcementDescription, announcementRole, announcementImage, supabaseClient);
+        return res.status(200).json(result);
+    }
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: 'Creating announcement failed.'
-        })
-    }   
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
+            message: err.message || 'Failed to request call for join community at this time.'
         })
     }
 });

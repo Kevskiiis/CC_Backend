@@ -26,5 +26,6 @@ export default async function authMiddleware (req, res, next) {
     // Attach the user to the request call now and move one:
     req.user = user;            // the Supabase user object
     req.supabase = supabaseUser; // the client authorized as that user
+    req.accessToken = accessToken;
     next(); 
 }

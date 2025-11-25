@@ -2,7 +2,7 @@ import { getSupabaseUserClient } from "../supabase/localSupabaseClient";
 
 export async function deleteCommunity (communityID, bearerToken) {
     // Create a superbase object: 
-    const supabaseUser = getSupabaseUserClient(bearerToken);
+    const supabaseUser = await getSupabaseUserClient(bearerToken);
 
     // Catch the user and the data:
     const { data: { user } } = await supabaseUser.auth.getUser();
