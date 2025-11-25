@@ -1,4 +1,5 @@
 import { ErrorHandler } from "../../objects/errorHandler.js";
+import { getImagePublicUrl } from "../../imageHandlers/imagePublicURL.js";
 
 export async function getUserCommunities (userID, supabaseClient) {
     // Call the supabase function:

@@ -2,6 +2,7 @@ import { generateCommunityCode } from "../../../utils/CommunityFunctions.js";
 import { ErrorHandler } from "../../objects/errorHandler.js";
 import { imageUploader } from "../../imageHandlers/imageUploader.js";
 import { imageRemover } from "../../imageHandlers/imageRemover.js";
+import { getImagePublicUrl } from "../../imageHandlers/imagePublicURL.js";
 
 export async function createCommunity(communityName, communityBio = null, communityImage = null, userID, supabaseClient) {
     // Validate inputs:
@@ -65,12 +66,15 @@ export async function createCommunity(communityName, communityBio = null, commun
         await imageUploader("communities",filePath, communityImage);
     }
 
+    const getPublicURL = await getImagePublicUrl("communities", filePath); 
+
     // Call the database function (atomic transaction)
     const { data: CommunityData, error: CommunityError } = await supabaseClient
         .rpc('create_community_with_creator', {
             p_community_name: communityName,
             p_community_bio: communityBio,
             p_attachment_url: filePath,
+            p_community_public_url:  getPublicURL.success = true ? getPublicURL.url : null,
             p_join_code: joinCode,
             p_user_id: userID
         });
@@ -97,6 +101,7 @@ export async function createCommunity(communityName, communityBio = null, commun
             bio: community.community_bio,
             joinCode: community.join_code,
             attachmentUrl: community.attachment_url,
+            publicUrl: community.community_public_url,
             dateCreated: community.date_created
         }
     };

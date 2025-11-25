@@ -22,13 +22,13 @@ import {
 import { approveJoinRequest } from './api/community_management/approveJoinRequest.js';
 import { declineJoinRequest } from './api/community_management/declineJoinRequest.js';
 // import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
-import { getCommunityPosts } from './api/post/getCommunityPosts.js';
+import { getCommunityPosts } from './communityHandlers/getMethods/getCommunityPosts.js';
 import { getCommunityAnnouncements } from './api/announcement/getCommunityAnnouncements.js';
 import { getJoinQueue } from './api/community_management/getJoinQueue.js';
-import { isUserInThisCommunity } from './api/community/isUserInThisCommunity.js';
+import { isUserInThisCommunity } from './communityHelpers/isUserInThisCommunity.js';
 import { isUserAdmin } from './api/community/isUserAdmin.js';
 // import { changeJoinCode } from './api/community/changeJoinCode.js';
-import { getCommunityMembers } from './api/community_management/getCommunityMembers.js';
+// import { getCommunityMembers } from './communityHandlers/getMethods/getCommunityMembers.js';
 import { adminCommunityCount } from './api/community/adminCommunityCount.js';
 import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 
@@ -41,6 +41,7 @@ import { restoreSession } from './authenticationHandlers/restoreSession.js';
 
 // Community Handler Functions:
 import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
+import { getCommunityMembers } from './communityHandlers/getMethods/getCommunityMembers.js';
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
@@ -93,59 +94,41 @@ server.get('/get-user-communities', authMiddleware, async(req, res) => { // Fina
     }
 });
 
-server.get('/get-community-members', async(req, res) => {
+server.get('/get-community-members', authMiddleware, async(req, res) => { // Finalized:
     try {
-        // Use access token to make the call: 
-        const bearerToken = req.headers['authorization'];
-
-        // Get Query Param:
+        // Get Query Param: Community ID
         const { communityID } = req.query;
 
-        // Attempt to retrieve members: 
-        const result = await getCommunityMembers(bearerToken, communityID);
-
-        // Handle the return status codes based on the success:
-        if (!result.success) {
-            return res.status(401).json(result);
+        if (!communityID) {
+            throw new ErrorHandler("There is missing information that is required to complete your call.", 401);
         }
 
+        // Attempt to retrieve members: 
+        const result = await getCommunityMembers(req.user.id, communityID, req.supabase);
         return res.status(200).json(result);
     }
-    catch (error) {
-        return res.status(500).json({
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: "Unexpected error ocurred with the server.",
-            members: null
-        });
+            message: err.message || 'An unexpected error occured.',
+        })
     }
 });
 
-server.get('/get-community-posts', async (req, res) => {
+server.get('/get-community-posts', authMiddleware, async (req, res) => {
     try {
-        // Use access token to make the call: 
-        const bearerToken = req.headers['authorization'];
-
-        if (!bearerToken) {
-            return res.status(401).json({
-                message: 'Authorization token missing.',
-                communityPosts: null
-            });
-        }
-        
         // Get query params
         const { communityID } = req.query;
+        
         if (!communityID) {
-            return res.status(400).json({
-                message: 'communityID query parameter is required.',
-                communityPosts: null
-            });
+            throw new ErrorHandler("There is missing information that is required to complete your call.", 401);
         }
 
-        const isUserInCommunity = await isUserInThisCommunity(communityID, bearerToken);
+        const isUserInCommunity = await isUserInThisCommunity(req.user.id, communityID, req.supbase);
 
         // Use the function to get posts:
         if (isUserInCommunity.success) {
-            const result = await getCommunityPosts(bearerToken, communityID);
+            const result = await getCommunityPosts(req.user.id, communityID, req.supabase);
                 
             // Check for errors in the result
             if (!result.success) {
@@ -279,7 +262,7 @@ server.get('/get-community-join-queue', async (req, res) => {
 });
 
 // POST Methods: 
-server.post('/sign-in', async (req, res) => { // Finalized
+server.post('/sign-in', async (req, res) => { // Finalized:
     try {
         // Obtain the form body:
         const { email, password } = req.body;
@@ -304,7 +287,7 @@ server.post('/sign-in', async (req, res) => { // Finalized
     }
 });
 
-server.post('/sign-out', async (req, res) => { // Finalized but requires testing! 
+server.post('/sign-out', async (req, res) => { // Finalized but requires testing! Maybe Add Auth Middleware 
     try {
         // Accept tokens to kill the session attached to them:
         const accessToken = req.headers.authorization.replace(/^Bearer\s+/i, ''); 
@@ -325,7 +308,7 @@ server.post('/sign-out', async (req, res) => { // Finalized but requires testing
     }
 });
 
-server.post('/create-account', async (req, res) => { // Finalized
+server.post('/create-account', async (req, res) => { // Add Image Feature Needed
     try {
         // Obtain all the features that we need from middleware: 
         const { firstName, lastName, email, password } = req.body;
@@ -355,7 +338,7 @@ server.post('/create-account', async (req, res) => { // Finalized
     }
 });
 
-server.post('/restore-session', async (req, res) => { // Finalized
+server.post('/restore-session', async (req, res) => { // Finalized: Maybe Add Auth Middleware
     try {
         // Accept refresh token in order to refresh the session:
         const refreshToken = req.headers["refreshtoken"];
