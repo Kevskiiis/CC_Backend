@@ -20,7 +20,10 @@ export default async function authMiddleware (req, res, next) {
 
     // Handle error retrieval for the error:
     if (userError  || !user) {
-        return res.status(401).send("Invalid authorization.");
+        return res.status(401).json({
+            success: false,
+            message: "Invalid authorization."
+        });
     }
 
     // Attach the user to the request call now and move one:

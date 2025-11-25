@@ -21,7 +21,7 @@ import {
 // import { joinCommunity } from './api/community_management/joinCommunity.js';
 import { approveJoinRequest } from './api/community_management/approveJoinRequest.js';
 import { declineJoinRequest } from './api/community_management/declineJoinRequest.js';
-import { getUserCommunities } from './api/community_management/getUserCommunities.js';
+// import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
 import { getCommunityPosts } from './api/post/getCommunityPosts.js';
 import { getCommunityAnnouncements } from './api/announcement/getCommunityAnnouncements.js';
 import { getJoinQueue } from './api/community_management/getJoinQueue.js';
@@ -32,6 +32,7 @@ import { getCommunityMembers } from './api/community_management/getCommunityMemb
 import { adminCommunityCount } from './api/community/adminCommunityCount.js';
 import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 
+// -------------------------------------------------------------------------------------------
 // Authentication Handler Functions:
 import { createAccount } from './authenticationHandlers/createAccount.js';
 import { signIn } from './authenticationHandlers/signIn.js';
@@ -39,6 +40,7 @@ import { signOut } from './authenticationHandlers/signOut.js';
 import { restoreSession } from './authenticationHandlers/restoreSession.js';
 
 // Community Handler Functions:
+import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
@@ -77,30 +79,16 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // GET Methods:
-server.get('/get-user-communities', async(req, res) => { // Requires access token. 
+server.get('/get-user-communities', authMiddleware, async(req, res) => { // Finalized
     try {
-        // Use access token to make the call: 
-        const bearerToken = req.headers['authorization'];
-
-        // Attempt to fetch communities: 
-        const result = await getUserCommunities(bearerToken);
-
-        if (result.success) {
-            return res.status(200).json({
-                message: result.message,
-                communities: result.communities
-            })
-        }
-
-        return res.status(401).json({
-            message: result.message,
-            communities: null
-        })
+        // Aquire Supabase Client and User from AuthMiddleware + Fetch Communities: 
+        const result = await getUserCommunities(req.user.id, req.supabase);
+        res.status(200).json(result); 
     }
-    catch (error) {
-        return res.status(500).json({
-            message: 'Upexpected error occured.',
-            communities: null
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'An unexpected error occured.',
         })
     }
 });
@@ -459,7 +447,7 @@ server.post('/approve-join-request', authMiddleware, async (req, res) => { // Fi
     }
 }); 
 
-server.post('/create-post', authMiddleware, upload.single("postImage"), async (req, res) => { // Temp Finalized
+server.post('/create-post', authMiddleware, upload.single("postImage"), async (req, res) => { // Temp Finalized: Needs isInCommunity Check + Failure handle
     try {
         // Extract the client & user:
         const supabaseClient = req.supabase;
@@ -486,7 +474,7 @@ server.post('/create-post', authMiddleware, upload.single("postImage"), async (r
     }
 });
 
-server.post('/create-announcement', authMiddleware, upload.single("announcementImage"), async (req, res) => { // Temp Finalized
+server.post('/create-announcement', authMiddleware, upload.single("announcementImage"), async (req, res) => { // Temp Finalized: Needs isInCommunity Check + Failure handle
     try {
         // Extract the client & user:
         const supabaseClient = req.supabase;
