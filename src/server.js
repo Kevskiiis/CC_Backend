@@ -41,12 +41,18 @@ import { restoreSession } from './authenticationHandlers/restoreSession.js';
 // Community Handler Functions:
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
+import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
+
+// Community Helper Functions:
+import { isUserAnAdmin } from './communityHelpers/isUserAnAdmin.js';
 
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
 
+
 // Helper Functions:
 import { trimStrings } from './helpers/strings/trimStrings.js';
+
 
 // Objects:
 import { ErrorHandler } from './objects/errorHandler.js';
@@ -424,27 +430,29 @@ server.post('/join-community', authMiddleware, async (req, res) => { // Finalize
     }
 });
 
-server.post('/approve-join-request', async (req, res) => {
-    const { newUserID, communityID } = req.body;
-    const adminBearerToken = req.headers['authorization'];
+server.post('/approve-join-request', authMiddleware, async (req, res) => { // Finalized: Requires AuthToken, NewUserID, CommunityID
     try{
-        const joinResult = await approveJoinRequest(newUserID,communityID, adminBearerToken);
+        // Extract the required data:
+        const user = req.user; 
+        const supabaseClient = req.supabase;
+        const { newUserID, communityID } = req.body;
+        
+        // Check if the user is an admin: 
+        const isAdmin = await isUserAnAdmin(communityID, user.id, supabaseClient);
 
-        if (joinResult.approved) {
-            return res.status(200).json({
-                success: joinResult.approved,
-                message: joinResult.result
-            })
+        if (isAdmin) {
+            const requestResult = await approveCommunityJoinRequest(newUserID, communityID, supabaseClient);
+            return res.status(200).json(requestResult);
         }
         else {
-            return res.status(401).json({
-                success: false,
-                message: joinResult.result
-            })
+            throw new ErrorHandler("You are not authorized to complete this action.", 401);
         }
     }
-    catch (error) {
-
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
     }
 }); 
 
