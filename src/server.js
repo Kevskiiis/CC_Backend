@@ -24,7 +24,7 @@ import { declineJoinRequest } from './api/community_management/declineJoinReques
 // import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
 import { getCommunityPosts } from './communityHandlers/getMethods/getCommunityPosts.js';
 import { getCommunityAnnouncements } from './api/announcement/getCommunityAnnouncements.js';
-import { getJoinQueue } from './api/community_management/getJoinQueue.js';
+// import { getJoinQueue } from './communityHandlers/getMethods/getJoinQueue.js';
 import { isUserInThisCommunity } from './communityHelpers/isUserInThisCommunity.js';
 import { isUserAdmin } from './api/community/isUserAdmin.js';
 // import { changeJoinCode } from './api/community/changeJoinCode.js';
@@ -42,6 +42,7 @@ import { restoreSession } from './authenticationHandlers/restoreSession.js';
 // Community Handler Functions:
 import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
 import { getCommunityMembers } from './communityHandlers/getMethods/getCommunityMembers.js';
+import { getJoinQueue } from './communityHandlers/getMethods/getJoinQueue.js';
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
@@ -94,7 +95,7 @@ server.get('/get-user-communities', authMiddleware, async(req, res) => { // Fina
     }
 });
 
-server.get('/get-community-members', authMiddleware, async(req, res) => { // Finalized:
+server.get('/get-community-members', authMiddleware, async(req, res) => { // Finalized
     try {
         // Get Query Param: Community ID
         const { communityID } = req.query;
@@ -115,7 +116,7 @@ server.get('/get-community-members', authMiddleware, async(req, res) => { // Fin
     }
 });
 
-server.get('/get-community-posts', authMiddleware, async (req, res) => {
+server.get('/get-community-posts', authMiddleware, async (req, res) => { // Finalized: Needs time function.
     try {
         // Get query params
         const { communityID } = req.query;
@@ -124,25 +125,14 @@ server.get('/get-community-posts', authMiddleware, async (req, res) => {
             throw new ErrorHandler("There is missing information that is required to complete your call.", 401);
         }
 
-        const isUserInCommunity = await isUserInThisCommunity(req.user.id, communityID, req.supbase);
+        const isUserInCommunity = await isUserInThisCommunity(req.user.id, communityID, req.supabase);
 
         // Use the function to get posts:
         if (isUserInCommunity.success) {
             const result = await getCommunityPosts(req.user.id, communityID, req.supabase);
-                
-            // Check for errors in the result
-            if (!result.success) {
-                return res.status(404).json({
-                    message: 'Could not retrieve any posts.',
-                    communityPosts: null
-                });
-            }
     
             // Return posts
-            return res.status(200).json({
-                message: 'Posts retrieved successfully.',
-                communityPosts: result.posts
-            });
+            return res.status(200).json(result);
         }
         else {
             return res.status(401).json({
@@ -151,98 +141,58 @@ server.get('/get-community-posts', authMiddleware, async (req, res) => {
             })
         }
     }
-    catch (error) {
-        return res.status(500).json({
-            message: 'Upexpected error occured.',
-            communitiesPosts: null
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
         })
     }
 });
 
-server.get('/get-community-announcements', async (req, res) => {
-    try {
-        // Extract the access token from headers
-        const bearerToken = req.headers['authorization'];
-
-        if (!bearerToken) {
-            return res.status(401).json({
-                message: 'Authorization token missing.',
-                communityAnnouncements: null
-            });
-        }
-        
-        // Get query params
+server.get('/get-community-announcements', authMiddleware, async (req, res) => { // Finalized: Needs time function": 
+    try { 
         const { communityID } = req.query;
         if (!communityID) {
-            return res.status(400).json({
-                message: 'communityID query parameter is required.',
-                communityAnnouncements: null
-            });
+            throw new ErrorHandler("Required information was not entered. Please try again.", 401);
         }
 
         // Check if user is a member of this community
-        const isUserInCommunity = await isUserInThisCommunity(communityID, bearerToken);
+        const isUserInCommunity = await isUserInThisCommunity(req.user.id, communityID, req.supabase);
 
-        if (!isUserInCommunity.success) {
+        if (isUserInCommunity.success) {
+            // Use the function to get announcements
+            const result = await getCommunityAnnouncements(req.user.id, communityID, req.supabase);
+
+            // Return announcements
+            return res.status(200).json(result);
+        }
+        else {
             return res.status(401).json({
                 message: 'Not authorized to load the announcements from this community.',
                 communityAnnouncements: null
             });
         }
-
-        // Use the function to get announcements
-        const result = await getCommunityAnnouncements(bearerToken, communityID);
-
-        if (!result.success) {
-            return res.status(404).json({
-                message: 'Could not retrieve any announcements.',
-                communityAnnouncements: null
-            });
-        }
-
-        // Return announcements
-        return res.status(200).json({
-            message: 'Announcements retrieved successfully.',
-            communityAnnouncements: result.announcements
-        });
-
-    } catch (error) {
-        console.error("Unexpected error:", error);
-        return res.status(500).json({
-            message: 'Unexpected error occurred.',
-            communityAnnouncements: null
-        });
+    } 
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
     }
 });
 
-server.get('/get-community-join-queue', async (req, res) => {
+server.get('/get-community-join-queue', authMiddleware, async (req, res) => { // Finalized
     try {
-        // Extract the access token from headers
-       const bearerToken = req.headers['authorization'];
-    
        // Query Params
        const { communityID } = req.query;
 
        // Check if the user is an admin: 
-       const isAdmin = await isUserAdmin(communityID, bearerToken); 
+       const isAdmin = await isUserAnAdmin(req.user.id, communityID, req.supabase);
 
        // If the user is not an admin: 
        if (isAdmin) {
-            const queue = await getJoinQueue(bearerToken, communityID);
-
-            if (queue.success) {
-                return res.status(200).json({
-                    success: true,
-                    message: 'Success in returning the queue for the community.',
-                    queue: queue.joinQueue
-                });
-            }
-
-            return res.status(401).json({
-                success: false,
-                message: 'Unable to get the queue for the community.', 
-                queue: null
-            })
+            const queue = await getJoinQueue(req.user.id, communityID, req.supabase);
+            return res.status(200).json(queue); 
        }
        else {
             return res.status(401).json({
@@ -252,12 +202,11 @@ server.get('/get-community-join-queue', async (req, res) => {
             })
        }
     }
-    catch (error) {
-        return res.status(500).json({
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: 'Unexpected error occurred.',
-            queue: null
-        });
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
     }
 });
 
@@ -308,10 +257,11 @@ server.post('/sign-out', async (req, res) => { // Finalized but requires testing
     }
 });
 
-server.post('/create-account', async (req, res) => { // Add Image Feature Needed
+server.post('/create-account', upload.single("avatarImage"), async (req, res) => { // Temp Finlized Fix Error Handling
     try {
         // Obtain all the features that we need from middleware: 
         const { firstName, lastName, email, password } = req.body;
+        const avatarImage = req.file;
 
         // Handle if one the fields is missing:
         if (!firstName || !lastName || !email || !password) {
@@ -325,7 +275,7 @@ server.post('/create-account', async (req, res) => { // Add Image Feature Needed
         await validateNewAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
 
         // Create new account: 
-        const result = await createAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword);
+        const result = await createAccount(trimmedFirstName, trimmedLastName, trimmedEmail, trimmedPassword, avatarImage);
 
         // Account was successfully create:
         return res.status(200).json(result);

@@ -74,7 +74,7 @@ export async function createCommunity(communityName, communityBio = null, commun
             p_community_name: communityName,
             p_community_bio: communityBio,
             p_attachment_url: filePath,
-            p_community_public_url:  getPublicURL.success = true ? getPublicURL.url : null,
+            p_community_public_url: getPublicURL.success = true ? getPublicURL.url : null,
             p_join_code: joinCode,
             p_user_id: userID
         });

@@ -1,6 +1,7 @@
 import { ErrorHandler } from "../../objects/errorHandler.js";
 import { imageUploader } from "../../imageHandlers/imageUploader.js";
 import { imageRemover } from "../../imageHandlers/imageRemover.js";
+import { getImagePublicUrl } from "../../imageHandlers/imagePublicURL.js";
 
 export async function createAnnouncement (communityID, communityName, profileID, announcementTitle, announcementDescription, announcementRole, announcementImage = null, supabaseClient) {
     //Step 1: Insert new community post: 
@@ -17,7 +18,7 @@ export async function createAnnouncement (communityID, communityName, profileID,
     .select();
 
     if (announcementError) {
-        throw new ErrorHandler("Error uploading a community post. Try again.", 500);
+        throw new ErrorHandler("Error uploading a community announcement. Try again.", 500);
     }
 
     const announcement = announcementData[0];
@@ -28,11 +29,14 @@ export async function createAnnouncement (communityID, communityName, profileID,
         await imageUploader("communities",filePath, announcementImage);
     }
 
+    const getPublicURL = await getImagePublicUrl("communities", filePath);
+
     // Upload Image URL into the community posts:
     const { data: urlData, error: urlError } = await supabaseClient
     .from('community_announcements')
     .update({
-        attachment_url: filePath
+        attachment_url: filePath,
+        announcement_public_url: getPublicURL.success = true ? getPublicURL.url : null
     })
     .eq("announcement_id", announcement.announcement_id)
     .select();

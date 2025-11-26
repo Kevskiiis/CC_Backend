@@ -1,6 +1,7 @@
 import { ErrorHandler } from "../../objects/errorHandler.js";
 import { imageUploader } from "../../imageHandlers/imageUploader.js";
 import { imageRemover } from "../../imageHandlers/imageRemover.js";
+import { getImagePublicUrl } from "../../imageHandlers/imagePublicURL.js";
 
 export async function createPost (communityID, communityName, profileID, postTitle, postDescription, postImage = null, supabaseClient) {
     //Step 1: Insert new community post: 
@@ -27,11 +28,14 @@ export async function createPost (communityID, communityName, profileID, postTit
         await imageUploader("communities",filePath, postImage);
     }
 
+    const getPublicURL = await getImagePublicUrl("communities", filePath);
+
     // Upload Image URL into the community posts:
     const { data: urlData, error: urlError } = await supabaseClient
     .from('community_posts')
     .update({
-        attachment_url: filePath
+        attachment_url: filePath,
+        post_public_url: getPublicURL.success = true ? getPublicURL.url : null
     })
     .eq("post_id", post.post_id)
     .select();

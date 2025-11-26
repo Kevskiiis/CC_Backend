@@ -1,46 +1,28 @@
-import { getSupabaseUserClient } from "../api/supabase/localSupabaseClient.js";
+import { ErrorHandler } from "../objects/errorHandler.js";
 
 export async function isUserInThisCommunity (userID, communityID, supabaseClient) {
-    
-        // Create Instance of the supbase client:
-        // const supabaseUser = await getSupabaseUserClient(bearerToken);
+    // Call the SQL function to check:
+    const {data: Table, error: TableError } = await supabaseClient.rpc('is_user_in_community_v3', {p_community_id: communityID, p_user_id: userID});
 
-        // Catch the user and the data:
-        // const { data: { user }, error: UserError } = await supabaseUser.auth.getUser();
+    // Catch TableError:
+    if (TableError) {
+        throw new ErrorHandler("Error occured while verifying your community status.", 500);
+    }
 
-        // Catch getUser() error:
-        // if (UserError) {
-        //     return {
-        //         success: false,
-        //         message: 'Error occured while trying to create a client.'
-        //     }
-        // }
+    // Obtain boolean value from the SQL call:
+    const isInCommunity = Table?.[0]?.in_community ?? false;
 
-        // Call the SQL function to check:
-        const {data: Table, error: TableError } = await supabaseClient.rpc('is_user_in_community_v3', {p_community_id: communityID, p_user_id: userID});
-
-        // Catch TableError:
-        if (TableError) {
-            return {
-                success: false,
-                message: 'Error occured while calling the database function'
-            }
+    // Return if they are part of the community:
+    if (isInCommunity) {
+        return {
+            success: true,
+            message: 'User is present in the community!'
         }
-
-        // Obtain boolean value from the SQL call:
-        const isInCommunity = Table?.[0]?.in_community ?? false;
-
-        // Return if they are part of the community:
-        if (isInCommunity) {
-            return {
-                success: true,
-                message: 'User is present in the community!'
-            }
+    }
+    else {
+        return {
+            success: false,
+            message: 'User is not present in the community.'
         }
-        else {
-            return {
-                success: false,
-                message: 'User is not present in the community.'
-            }
-        }
+    }
 }
