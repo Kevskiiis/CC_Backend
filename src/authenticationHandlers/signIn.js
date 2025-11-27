@@ -13,7 +13,7 @@ export async function signIn (trimmedEmail, trimmedPassword) {
     if (error) throw new ErrorHandler(`Login failed: ${error.message}`, 500); 
 
     // Handle No Session: 
-    if (!data.session) throw new ErrorHandler("Login failed: Invalid login credentials.", 401);
+    if (!data.session) throw new ErrorHandler("Login failed: Invalid login credentials.", 400);
 
     // Success:
     return {
