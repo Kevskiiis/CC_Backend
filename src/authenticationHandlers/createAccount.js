@@ -26,7 +26,7 @@ export async function createAccount (trimmedFirstName, trimmedLastName, trimmedE
         await imageUploader("profiles",filePath, avatarImage);
     }
 
-    const getPublicURL = await getImagePublicUrl("communities", filePath);
+    const getPublicURL = await getImagePublicUrl("profiles", filePath);
 
     // Upload user to the Profiles Table:
     const {data: ProfileData, error: ProfileError} = await supabase
