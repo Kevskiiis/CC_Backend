@@ -10,10 +10,10 @@ export async function signIn (trimmedEmail, trimmedPassword) {
     })
 
     // Handle Supabase Error:
-    if (error) throw new ErrorHandler(`Login failed: ${error.message}`, 400); 
+    if (error) throw new ErrorHandler(`Login failed: ${error.message}`, 401); 
 
     // Handle No Session: 
-    if (!data.session) throw new ErrorHandler("Login failed: Invalid login credentials.", 400);
+    if (!data.session) throw new ErrorHandler("Login failed: Invalid login credentials.", 401);
 
     // Success:
     return {
