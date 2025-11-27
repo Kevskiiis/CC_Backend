@@ -29,7 +29,7 @@ import { isUserInThisCommunity } from './communityHelpers/isUserInThisCommunity.
 import { isUserAdmin } from './api/community/isUserAdmin.js';
 // import { changeJoinCode } from './api/community/changeJoinCode.js';
 // import { getCommunityMembers } from './communityHandlers/getMethods/getCommunityMembers.js';
-import { adminCommunityCount } from './api/community/adminCommunityCount.js';
+// import { adminCommunityCount } from './communityHelpers/adminCommunityCount.js';
 import { leaveCommunity } from './api/community_management/leaveCommunity.js';
 
 // -------------------------------------------------------------------------------------------
@@ -49,9 +49,12 @@ import { approveCommunityJoinRequest } from './communityHandlers/postMethods/app
 import { changeJoinCode } from './communityHandlers/patchMethods/changeJoinCode.js';
 import { createPost } from './communityHandlers/postMethods/createPost.js';
 import { createAnnouncement } from './communityHandlers/postMethods/createAnnouncement.js';
+import { deleteCommunity } from './communityHandlers/deleteMethods/deleteCommunity.js';
 
 // Community Helper Functions:
 import { isUserAnAdmin } from './communityHelpers/isUserAnAdmin.js';
+import { adminCommunityCount } from './communityHelpers/adminCommunityCount.js';
+import { memberCommunityCount } from './communityHelpers/memberCommunityCount.js';
 
 // Image Handler Functions:
 import { imageUploader } from './imageHandlers/imageUploader.js';
@@ -460,54 +463,66 @@ server.patch('/change-join-code', authMiddleware, async (req, res) => { // Final
     }
 });
 
+server.patch('/escalate-privilage', authMiddleware, async (req, res) => {
+
+});
+
 // DELETE Methods:
-server.delete('/leave-community', async (req, res) => { // Takes in Params:
+server.delete('/leave-community', authMiddleware, async (req, res) => { // FINISH DEBUGGING
     try {
-        // Bearer Token:
-        const bearerToken = req.headers['authorization'];
-    
         // Community ID:
         const { communityID } = req.query;
 
-        console.log(communityID); 
+        // See if the user is in the community:
+        const isInCommunity = await isUserInThisCommunity(req.user.id, communityID, req.supabase);
+        if (!isInCommunity.success) {
+            res.status(401).json(isInCommunity);
+        }
 
         // See if the user is an admin:
-        const isAdmin = await isUserAdmin(communityID, bearerToken);
+        const isAdmin = await isUserAnAdmin(req.user.id, communityID, req.supabase);
 
-        // console.log(isAdmin); 
+        console.log(isAdmin); 
 
         // If they are admin, handle edge cases:
         if (isAdmin) {
-            const adminCount = await adminCommunityCount(communityID, bearerToken);
+            const adminCount = await adminCommunityCount(req.user.id, communityID, req.supabase);
+            const memberCount = await memberCommunityCount(req.user.id, communityID, req.supabase); 
+            console.log(adminCount);
+            console.log(memberCount);
 
-            console.log(adminCount); 
-
-            if (!adminCount.success) {
+            // There are other admins:
+            if (adminCount.count >= 1) {
+                console.log("Other admins");
+                const leaveStatus = await leaveCommunity(req.user.id, communityID, req.supabase);
+                return res.status(200).json(leaveStatus);
+            }
+            // I am alone entirely:
+            if (adminCount.count === 0 && memberCount.count === 0) {
+                console.log("Alone Entirely");
+                const leaveStatus = await leaveCommunity(req.user.id, communityID, req.supabase);
+                const deleteStatus = await deleteCommunity(communityID, req.supabase); 
+                return res.status(200).json(leaveStatus);
+            }
+            // I am the only admin but there are members:
+            if (adminCount.count === 0 && memberCount.count >= 1) { 
+                console.log("Only admin.");
                 return res.status(400).json({
                     success: false,
-                    message: 'Failed to obtain the other admin members.'
+                    message: "You must promote a user to an admin position before leaving. Rule of thumb, there must always be one admin present in a community."
                 })
             }
-
-            if (adminCount.count >= 1) {
-                const leaveStatus = await leaveCommunity(communityID, bearerToken);
-                return res.status(leaveCommunity.success ? 200 : 400).json(leaveStatus); 
-            }
-            else {
-                return {
-                    success: false,
-                    message: "You must promote an member to admin status within your community before leaving."
-                }
-            }
         }
-        // If they are not, then simply remove them from the community: 
-        const leaveStatus = await leaveCommunity(communityID, bearerToken); 
-        return res.status(leaveCommunity.success ? 200 : 400).json(leaveStatus);
+        else {
+            console.log("Only a member.");
+            const leaveStatus = await leaveCommunity(req.user.id, communityID, req.supabase); 
+            return res.status(200).json(leaveStatus);
+        }
     }
-    catch (error) {
-        return res.status(500).json({
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
             success: false,
-            message: 'An unexpected error occured.'
+            message: err.message || 'Failed to request call for join community at this time.'
         })
     }
 });
@@ -544,10 +559,6 @@ server.delete('/decline-join-request', async (req, res) => {
             message: error.message
         })
     }
-});
-
-server.delete('/delete-user', async (req, res) => {
-
 });
 
 // Listening Port:

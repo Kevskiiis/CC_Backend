@@ -22,7 +22,7 @@ export async function isUserInThisCommunity (userID, communityID, supabaseClient
     else {
         return {
             success: false,
-            message: 'User is not present in the community.'
+            message: 'User is not present in the community. You are not authorized to make no decisions.'
         }
     }
 }

@@ -1,32 +1,23 @@
-import { getSupabaseUserClient } from "../supabase/localSupabaseClient.js";
-// import { adminApproval } from "./adminApproval.js";
+import { ErrorHandler } from "../../objects/errorHandler.js";
+import { getMemberContent } from "../../communityHandlers/getMethods/getMemberContent.js";
+import { deleteMemberContent } from "../../communityHandlers/deleteMethods/deleteMemberContent.js";
 
-export async function leaveCommunity (communityID, bearerToken) {
-    // Create the client:
-    const supabaseUser = await getSupabaseUserClient(bearerToken); 
 
-    // Extract the user:
-    const {data: {user}, error: userError} = await supabaseUser.auth.getUser();
+export async function leaveCommunity (userID, communityID, supabaseClient) {
+    // Get all of their content, pictures, etc.
+    const memberContent = await getMemberContent(userID, communityID, supabaseClient);
 
-    if (userError) {
-        return {
-            success: false,
-            count: null
-        }
-    }
+    // Delete all of their content, pictures, etc.
+    const deletedContent = await deleteMemberContent(memberContent, "communities"); 
 
-    // Remove the user from the community:
-    const { data, error } = await supabaseUser.rpc('remove_member_from_community', {
+    const { data, error } = await supabaseClient.rpc('remove_member_from_community', {
         p_community_id: communityID,
-        p_member_id: user.id
+        p_member_id: userID
     })
 
     // If error: 
     if (error) {
-        return {
-            success: false,
-            message: error
-        }
+        throw new ErrorHandler("Error attempting to remove you from the community. Please try again.", 500);
     }
 
     return {
