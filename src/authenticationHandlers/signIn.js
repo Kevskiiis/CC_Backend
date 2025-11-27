@@ -21,6 +21,6 @@ export async function signIn (trimmedEmail, trimmedPassword) {
         message: 'Login successful!',
         userID: data.user.id,
         refresh_token: data.session.refresh_token,
-        accessToken: data.session.access_token
+        access_token: data.session.access_token
     }
 }
