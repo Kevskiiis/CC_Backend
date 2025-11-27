@@ -50,7 +50,7 @@ export async function createAccount (trimmedFirstName, trimmedLastName, trimmedE
     // Success:
     return {
         success: true,
-        message: "Account successfully created!",
+        message: "Account successfully created! You must sign-in now.",
         profile: ProfileData[0],
     };  
 }
