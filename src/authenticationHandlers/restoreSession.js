@@ -14,9 +14,9 @@ export async function restoreSession (refreshToken) {
         success: true,
         message: 'Session refreshed successfully.',
         data: {
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
-            expiresAt: data.session.expires_at
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            expires_at: data.session.expires_at
         }
     };
 }

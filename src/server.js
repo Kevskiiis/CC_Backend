@@ -292,7 +292,7 @@ server.post('/create-account', upload.single("avatarImage"), async (req, res) =>
     }
 });
 
-server.post('/restore-session', async (req, res) => { // Finalized: Maybe Add Auth Middleware
+server.post('/restore-session', authMiddleware, async (req, res) => { // Finalized: Maybe Add Auth Middleware
     try {
         // Accept refresh token in order to refresh the session:
         const refreshToken = req.headers["refreshtoken"];
