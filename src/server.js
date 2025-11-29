@@ -40,6 +40,7 @@ import { signOut } from './authenticationHandlers/signOut.js';
 import { restoreSession } from './authenticationHandlers/restoreSession.js';
 
 // Community Handler Functions:
+import { getUserAccount } from './communityHandlers/getMethods/getUserAccount.js';
 import { getUserCommunities } from './communityHandlers/getMethods/getUserCommunities.js';
 import { getCommunityMembers } from './communityHandlers/getMethods/getCommunityMembers.js';
 import { getJoinQueue } from './communityHandlers/getMethods/getJoinQueue.js';
@@ -84,6 +85,20 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // GET Methods:
+server.get('/get-own-account', authMiddleware, async(req, res) => {
+    try {
+        console.log(req.user.id);
+        const result = await getUserAccount(req.user.id, req.supabase);
+        res.status(200).json(result); 
+    }   
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'An unexpected error occured.',
+        })
+    }
+});
+
 server.get('/get-user-communities', authMiddleware, async(req, res) => { // Finalized
     try {
         // Aquire Supabase Client and User from AuthMiddleware + Fetch Communities: 
