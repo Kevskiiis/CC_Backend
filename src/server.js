@@ -90,7 +90,7 @@ server.get('/get-own-account', authMiddleware, async(req, res) => {
         console.log(req.user.id);
         const result = await getUserAccount(req.user.id, req.supabase);
         res.status(200).json(result); 
-    }   
+    }
     catch (err) {
         return res.status(err.statusCode || 500).json({
             success: false,
@@ -455,6 +455,30 @@ server.post('/create-announcement', authMiddleware, upload.single("announcementI
 });
 
 // PATCH Methods:
+server.patch('/update-bio', authMiddleware, async (req, res) => {
+    try {
+        
+    }
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
+    }
+});
+
+server.patch('/update-profile-picture', authMiddleware, async (req, res) => {
+    try {
+        
+    }
+    catch (err) {
+        return res.status(err.statusCode || 500).json({
+            success: false,
+            message: err.message || 'Failed to request call for join community at this time.'
+        })
+    }
+});
+
 server.patch('/change-join-code', authMiddleware, async (req, res) => { // Finalized: Requires AuthToken, CommunityID
     try {
         // Extract the required data:
