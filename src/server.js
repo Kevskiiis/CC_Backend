@@ -366,7 +366,7 @@ server.post('/approve-join-request', authMiddleware, async (req, res) => { // Fi
         const { newUserID, communityID } = req.body;
         
         // Check if the user is an admin: 
-        const isAdmin = await isUserAnAdmin(communityID, user.id, supabaseClient);
+        const isAdmin = await isUserAnAdmin(user.id, communityID, supabaseClient);
 
         if (isAdmin) {
             const requestResult = await approveCommunityJoinRequest(newUserID, communityID, supabaseClient);

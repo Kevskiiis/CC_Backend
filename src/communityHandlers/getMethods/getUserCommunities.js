@@ -14,7 +14,7 @@ export async function getUserCommunities (userID, supabaseClient) {
     if (!data || data.length === 0) {
         return {
             success: true, 
-            message: 'Join a community now!',
+            message: 'No communities currently. Join a community now!',
             communities: []
         }
     }
