@@ -47,10 +47,12 @@ import { getJoinQueue } from './communityHandlers/getMethods/getJoinQueue.js';
 import { createCommunity } from './communityHandlers/postMethods/createCommunity.js';
 import { joinCommunity } from './communityHandlers/postMethods/joinCommunity.js';
 import { approveCommunityJoinRequest } from './communityHandlers/postMethods/approveCommunityJoinRequest.js';
-import { changeJoinCode } from './communityHandlers/patchMethods/changeJoinCode.js';
 import { createPost } from './communityHandlers/postMethods/createPost.js';
 import { createAnnouncement } from './communityHandlers/postMethods/createAnnouncement.js';
 import { deleteCommunity } from './communityHandlers/deleteMethods/deleteCommunity.js';
+import { changeJoinCode } from './communityHandlers/patchMethods/changeJoinCode.js';
+import { updateBio } from './communityHandlers/patchMethods/updateBio.js';
+import { updateProfilePicture } from './communityHandlers/patchMethods/updateProfilePicture.js';
 
 // Community Helper Functions:
 import { isUserAnAdmin } from './communityHelpers/isUserAnAdmin.js';
@@ -457,7 +459,9 @@ server.post('/create-announcement', authMiddleware, upload.single("announcementI
 // PATCH Methods:
 server.patch('/update-bio', authMiddleware, async (req, res) => {
     try {
-        
+        const { newBio } = req.body;
+        const result = await updateBio(newBio, req.supabase);
+        return res.status(200).json(result);
     }
     catch (err) {
         return res.status(err.statusCode || 500).json({
@@ -467,9 +471,15 @@ server.patch('/update-bio', authMiddleware, async (req, res) => {
     }
 });
 
-server.patch('/update-profile-picture', authMiddleware, async (req, res) => {
+server.patch('/update-profile-picture', upload.single("newProfileImage"), authMiddleware, async (req, res) => {
     try {
-        
+        const newProfileImage = req.file;
+        const supabaseClient = req.supabase;
+        const user = req.user; 
+
+        // Call the function:
+        const result = await updateProfilePicture(user.id, newProfileImage, supabaseClient); 
+        return res.status(200).json(result); 
     }
     catch (err) {
         return res.status(err.statusCode || 500).json({
@@ -504,7 +514,7 @@ server.patch('/change-join-code', authMiddleware, async (req, res) => { // Final
 });
 
 server.patch('/escalate-privilage', authMiddleware, async (req, res) => {
-
+    
 });
 
 // DELETE Methods:
